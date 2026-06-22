@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "farmhustle-app",
+    "slug": "farmhustle-app",
+    "scheme": "farmhustle", 
+    "version": "1.0.0",
+    "orientation": "portrait"
+    
+  }
+}
