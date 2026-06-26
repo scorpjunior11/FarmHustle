@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,18 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-type Crop = {
-  id: string;
-  name: string;
-  farmer: string;
-  location: string;
-  available: string;
-  price: string;
-  imageKey: string; // maps to LOCAL_IMAGES
-  liked: boolean;
-};
+import { getProducts, Product } from "../../api/client";
 
 // ─── Local Images (same files used by the farmer screen) ───────────────────────
 const LOCAL_IMAGES: Record<string, ImageSourcePropType> = {
@@ -33,65 +23,24 @@ const LOCAL_IMAGES: Record<string, ImageSourcePropType> = {
   plantain: require("../../../assets/images/Plantain.jpg"),
 };
 
-// ─── Mock Data (Sprint 1 — matches the farmer screen's listings) ───────────────
-// These mirror what farmers post. In Sprint 2 this comes live from the products table.
-const INITIAL_CROPS: Crop[] = [
-  {
-    id: "1",
-    name: "Maize",
-    farmer: "Kwame",
-    location: "Kumasi, Ashanti",
-    available: "500kg",
-    price: "GHS 12/kg",
-    imageKey: "maize",
-    liked: false,
-  },
-  {
-    id: "2",
-    name: "Tomatoes",
-    farmer: "Ama",
-    location: "Ejisu, Ashanti",
-    available: "200kg",
-    price: "GHS 20/kg",
-    imageKey: "tomatoes",
-    liked: false,
-  },
-  {
-    id: "3",
-    name: "Yam",
-    farmer: "Akosua",
-    location: "Tamale, Northern",
-    available: "350kg",
-    price: "GHS 8/kg",
-    imageKey: "yam",
-    liked: false,
-  },
-  {
-    id: "4",
-    name: "Plantain",
-    farmer: "Kofi",
-    location: "Cape Coast, Central",
-    available: "180kg",
-    price: "GHS 5/kg",
-    imageKey: "plantain",
-    liked: false,
-  },
-];
-
 // ─── CropCard Component ───────────────────────────────────────────────────────
 const CropCard = ({
   item,
+  imageKey,
+  liked,
   onToggleLike,
   onBuy,
 }: {
-  item: Crop;
+  item: Product;
+  imageKey: string;
+  liked: boolean;
   onToggleLike: (id: string) => void;
-  onBuy: (item: Crop) => void;
+  onBuy: (item: Product) => void;
 }) => (
   <View style={styles.card}>
     <View style={styles.cardTop}>
       <Image
-        source={LOCAL_IMAGES[item.imageKey]}
+        source={LOCAL_IMAGES[imageKey]}
         style={styles.cropImage}
         accessibilityLabel={`Photo of ${item.name}`}
       />
@@ -101,31 +50,26 @@ const CropCard = ({
           <Text style={styles.cropName}>{item.name}</Text>
           <TouchableOpacity onPress={() => onToggleLike(item.id)}>
             <Ionicons
-              name={item.liked ? "heart" : "heart-outline"}
+              name={liked ? "heart" : "heart-outline"}
               size={20}
-              color={item.liked ? "#E53935" : "#9E9E9E"}
+              color={liked ? "#E53935" : "#9E9E9E"}
             />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.farmerName}>Farmer: {item.farmer}</Text>
+        <Text style={styles.farmerName}>Farmer: {item.farmer.name}</Text>
 
         <View style={styles.locationRow}>
           <Ionicons name="location-outline" size={13} color="#757575" />
-          <Text style={styles.locationText}>{item.location}</Text>
+          <Text style={styles.locationText}>{item.farmer.region}</Text>
         </View>
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Ionicons name="cube-outline" size={13} color="#757575" />
-            <Text style={styles.statLabel}>{item.available}</Text>
+            <Text style={styles.statLabel}>{item.quantityAvailable} {item.unit}</Text>
           </View>
           <Text style={styles.statLabel}>Available</Text>
-
-          <View style={styles.priceBlock}>
-            <Text style={styles.priceText}>{item.price}</Text>
-            <Text style={styles.statLabel}>Price</Text>
-          </View>
         </View>
       </View>
     </View>
@@ -139,22 +83,25 @@ const CropCard = ({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function BuyerHome() {
-  const [crops, setCrops] = useState<Crop[]>(INITIAL_CROPS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
 
-  const filtered = crops.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.farmer.toLowerCase().includes(search.toLowerCase()) ||
-      c.location.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    getProducts().then(setProducts).catch(console.error);
+  }, []);
+
+  const filtered = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.farmer.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.farmer.region.toLowerCase().includes(search.toLowerCase())
   );
 
   const toggleLike = (id: string) =>
-    setCrops((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, liked: !c.liked } : c))
-    );
+    setLikedMap((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  const handleBuy = (item: Crop) => {
+  const handleBuy = (item: Product) => {
     // TODO (Sprint 2): navigate to order / checkout screen
     console.log("Buy pressed:", item.name);
   };
@@ -206,7 +153,13 @@ export default function BuyerHome() {
         data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <CropCard item={item} onToggleLike={toggleLike} onBuy={handleBuy} />
+          <CropCard
+            item={item}
+            imageKey={item.name.toLowerCase()}
+            liked={!!likedMap[item.id]}
+            onToggleLike={toggleLike}
+            onBuy={handleBuy}
+          />
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}

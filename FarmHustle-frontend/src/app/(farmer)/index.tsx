@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,12 @@ import {
   TouchableOpacity,
   Image,
   Alert,
-  Platform,
-  ImageSourcePropType,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
-import { Ionicons, MaterialIcons, Feather, Entypo } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, Entypo } from '@expo/vector-icons';
+import { createProduct, getProducts, Product } from '../../api/client';
 
 // ─── Colors ───────────────────────────────────────────────────
 const C = {
@@ -29,96 +29,37 @@ const C = {
   badgeText: '#2E7D32',
 };
 
-// ─── Types ────────────────────────────────────────────────────
-type ProductStatus = 'Active' | 'Sold Out' | 'Suspended';
-
-interface Listing {
-  id: string;
-  cropName: string;
-  quantity: number;
-  pricePerKg: number;
-  location: string;
-  imageKey?: string; // maps to LOCAL_IMAGES
-  imageUri?: string; // user-picked URI
-  status: ProductStatus;
-}
-
-// ─── Local Images ─────────────────────────────────────────────
-const LOCAL_IMAGES: Record<string, ImageSourcePropType> = {
-  maize: require('../../../assets/images/Maize.jpg'),
-  tomatoes: require('../../../assets/images/Tomatoes.jpg'),
-  yam: require('../../../assets/images/Yam.jpg'),
-  plantain: require('../../../assets/images/Plantain.jpg'),
-};
-
-// ─── Mock Data ────────────────────────────────────────────────
-const MOCK_LISTINGS: Listing[] = [
-  {
-    id: '1',
-    cropName: 'Maize',
-    quantity: 500,
-    pricePerKg: 12,
-    location: 'Kumasi, Ashanti',
-    imageKey: 'maize',
-    status: 'Active',
-  },
-  {
-    id: '2',
-    cropName: 'Tomatoes',
-    quantity: 200,
-    pricePerKg: 20,
-    location: 'Ejisu, Ashanti',
-    imageKey: 'tomatoes',
-    status: 'Active',
-  },
-  {
-    id: '3',
-    cropName: 'Yam',
-    quantity: 350,
-    pricePerKg: 8,
-    location: 'Tamale, Northern',
-    imageKey: 'yam',
-    status: 'Active',
-  },
-  {
-    id: '4',
-    cropName: 'Plantain',
-    quantity: 180,
-    pricePerKg: 5,
-    location: 'Cape Coast, Central',
-    imageKey: 'plantain',
-    status: 'Active',
-  },
-];
+// ─── Add Product form options ─────────────────────────────────
+const CATEGORIES = ['GRAINS', 'VEGETABLES', 'FRUITS', 'TUBERS', 'OTHER'] as const;
+const UNITS = ['KG', 'BAG', 'CRATE', 'BUNCH'] as const;
+type Category = typeof CATEGORIES[number];
+type Unit = typeof UNITS[number];
 
 // ─── Listing Card ─────────────────────────────────────────────
-function ListingCard({ listing }: { listing: Listing }) {
-  const { cropName, quantity, pricePerKg, location, imageKey, imageUri, status } = listing;
-
-  const imageSource: ImageSourcePropType =
-    imageKey && LOCAL_IMAGES[imageKey]
-      ? LOCAL_IMAGES[imageKey]
-      : imageUri
-      ? { uri: imageUri }
-      : require('../../../assets/images/icon.png');
-
+function ListingCard({ product }: { product: Product }) {
   return (
     <View style={cardStyles.card}>
-      <Image source={imageSource} style={cardStyles.image} accessibilityLabel={`Photo of ${cropName}`} />
+      <Image
+        source={require('../../../assets/images/icon.png')}
+        style={cardStyles.image}
+        accessibilityLabel={`Photo of ${product.name}`}
+      />
       <View style={cardStyles.details}>
         <View style={cardStyles.topRow}>
-          <Text style={cardStyles.cropName}>{cropName}</Text>
+          <Text style={cardStyles.cropName}>{product.name}</Text>
           <View style={cardStyles.badge}>
-            <Text style={cardStyles.badgeText}>{status}</Text>
+            <Text style={cardStyles.badgeText}>{product.isActive ? 'Active' : 'Inactive'}</Text>
           </View>
         </View>
-        <Text style={cardStyles.meta}>{quantity}kg  ·  GHS {pricePerKg}/kg</Text>
+        <Text style={cardStyles.meta}>
+          {product.quantityAvailable} {product.unit}  ·  {product.category}
+        </Text>
         <View style={cardStyles.locationRow}>
           <MaterialIcons name="location-pin" size={13} color={C.textMuted} />
-          <Text style={cardStyles.locationText}>{location}</Text>
+          <Text style={cardStyles.locationText}>{product.farmer.region}</Text>
         </View>
       </View>
-      <TouchableOpacity style={cardStyles.menu} accessibilityLabel={`Options for ${cropName}`} accessibilityRole="button">
+      <TouchableOpacity style={cardStyles.menu} accessibilityLabel={`Options for ${product.name}`} accessibilityRole="button">
         <Entypo name="dots-three-vertical" size={16} color={C.textMuted} />
       </TouchableOpacity>
     </View>
@@ -169,52 +110,60 @@ const cardStyles = StyleSheet.create({
 
 // ─── Main Screen ──────────────────────────────────────────────
 export default function FarmerScreen() {
-  const [cropName, setCropName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [price, setPrice] = useState('');
-  const [location, setLocation] = useState('');
-  const [pickedUri, setPickedUri] = useState<string | undefined>(undefined);
-  const [listings, setListings] = useState<Listing[]>(MOCK_LISTINGS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const [showAll, setShowAll] = useState(false);
 
-  const visibleListings = showAll ? listings : listings.slice(0, 2);
+  // ── Add Product modal state ────────────────────────────────
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [productName, setProductName] = useState('');
+  const [category, setCategory] = useState<Category | null>(null);
+  const [quantityAvailable, setQuantityAvailable] = useState('');
+  const [unit, setUnit] = useState<Unit | null>(null);
+  const [description, setDescription] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handlePickImage = async () => {
-    if (Platform.OS !== 'web') {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please allow access to your photo library.');
-        return;
-      }
+  const fetchProducts = useCallback(async () => {
+    try {
+      const data = await getProducts();
+      setProducts(data);
+    } catch {
+      // silently fail — listings stay empty
+    } finally {
+      setLoadingProducts(false);
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-    if (!result.canceled) setPickedUri(result.assets[0].uri);
-  };
+  }, []);
 
-  const handleCreateListing = () => {
-    if (!cropName.trim()) return Alert.alert('Missing field', 'Please enter a crop name.');
-    if (!quantity.trim() || isNaN(Number(quantity))) return Alert.alert('Missing field', 'Please enter a valid quantity.');
-    if (!price.trim() || isNaN(Number(price))) return Alert.alert('Missing field', 'Please enter a valid price.');
-    if (!location.trim()) return Alert.alert('Missing field', 'Please enter a location.');
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
-    const newListing: Listing = {
-      id: Date.now().toString(),
-      cropName: cropName.trim(),
-      quantity: Number(quantity),
-      pricePerKg: Number(price),
-      location: location.trim(),
-      imageUri: pickedUri,
-      status: 'Active',
-    };
+  const visibleProducts = showAll ? products : products.slice(0, 2);
 
-    setListings((prev) => [newListing, ...prev]);
-    setCropName(''); setQuantity(''); setPrice(''); setLocation(''); setPickedUri(undefined);
-    Alert.alert('Success', 'Your listing has been created!');
+  const handleAddProduct = async () => {
+    if (!productName.trim()) { Alert.alert('Missing field', 'Please enter a product name.'); return; }
+    if (!category) { Alert.alert('Missing field', 'Please select a category.'); return; }
+    if (!quantityAvailable.trim() || isNaN(Number(quantityAvailable))) { Alert.alert('Missing field', 'Please enter a valid quantity.'); return; }
+    if (!unit) { Alert.alert('Missing field', 'Please select a unit.'); return; }
+
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await createProduct({
+        name: productName.trim(),
+        category,
+        quantityAvailable: Number(quantityAvailable),
+        unit,
+        description: description.trim() || undefined,
+      });
+      Alert.alert('Success', 'Product created successfully!');
+      setProductName(''); setCategory(null); setQuantityAvailable(''); setUnit(null); setDescription('');
+      setShowAddProduct(false);
+      fetchProducts();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -235,58 +184,6 @@ export default function FarmerScreen() {
 
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-        {/* Banner */}
-        <View style={s.banner}>
-          <View style={s.bannerIcon}>
-            <Ionicons name="leaf" size={28} color={C.white} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.bannerTitle}>Create New Listing</Text>
-            <Text style={s.bannerSub}>List your produce and reach buyers</Text>
-          </View>
-        </View>
-
-        {/* Form */}
-        <View style={s.form}>
-          <Text style={s.label}>Crop Name</Text>
-          <TextInput style={s.input} placeholder="e.g. Maize" placeholderTextColor={C.textMuted} value={cropName} onChangeText={setCropName} accessibilityLabel="Crop name" />
-
-          <View style={s.row}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.label}>Quantity (kg)</Text>
-              <TextInput style={s.input} placeholder="500" placeholderTextColor={C.textMuted} keyboardType="numeric" value={quantity} onChangeText={setQuantity} accessibilityLabel="Quantity" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.label}>Price per kg (GHS)</Text>
-              <TextInput style={s.input} placeholder="12" placeholderTextColor={C.textMuted} keyboardType="numeric" value={price} onChangeText={setPrice} accessibilityLabel="Price" />
-            </View>
-          </View>
-
-          <Text style={s.label}>Location</Text>
-          <View style={s.inputRow}>
-            <TextInput style={[s.input, { flex: 1, borderWidth: 0 }]} placeholder="Kumasi, Ashanti Region" placeholderTextColor={C.textMuted} value={location} onChangeText={setLocation} accessibilityLabel="Location" />
-            <MaterialIcons name="location-pin" size={20} color={C.textMuted} />
-          </View>
-
-          <Text style={s.label}>Photo (optional)</Text>
-          <TouchableOpacity style={s.uploadArea} onPress={handlePickImage} accessibilityLabel="Upload photo" accessibilityRole="button">
-            {pickedUri ? (
-              <Image source={{ uri: pickedUri }} style={s.previewImage} />
-            ) : (
-              <>
-                <Feather name="camera" size={28} color={C.textMuted} />
-                <Text style={s.uploadTitle}>Upload Image</Text>
-                <Text style={s.uploadSub}>Tap to add a photo</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity style={s.createBtn} onPress={handleCreateListing} accessibilityLabel="Create listing" accessibilityRole="button">
-            <Ionicons name="add-circle-outline" size={20} color={C.white} />
-            <Text style={s.createBtnText}>Create Listing</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Listings */}
         <View style={s.listingsHeader}>
           <Text style={s.listingsTitle}>Your Listings</Text>
@@ -295,10 +192,134 @@ export default function FarmerScreen() {
           </TouchableOpacity>
         </View>
 
-        {visibleListings.map((item) => <ListingCard key={item.id} listing={item} />)}
+        {loadingProducts ? (
+          <ActivityIndicator color={C.primary} style={{ marginTop: 24 }} />
+        ) : products.length === 0 ? (
+          <Text style={s.emptyText}>No listings yet. Tap Add Product to get started.</Text>
+        ) : (
+          visibleProducts.map((item) => <ListingCard key={item.id} product={item} />)
+        )}
 
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* FAB — opens the Add Product modal */}
+      <TouchableOpacity
+        style={ap.fab}
+        onPress={() => setShowAddProduct(true)}
+        accessibilityLabel="Add product to backend"
+        accessibilityRole="button"
+      >
+        <Ionicons name="add" size={22} color={C.white} />
+        <Text style={ap.fabText}>Add Product</Text>
+      </TouchableOpacity>
+
+      {/* Add Product Modal */}
+      <Modal
+        visible={showAddProduct}
+        animationType="slide"
+        onRequestClose={() => { if (!submitting) setShowAddProduct(false); }}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.white }} edges={['top', 'bottom']}>
+          <View style={ap.modalHeader}>
+            <Text style={ap.modalTitle}>Add Product</Text>
+            <TouchableOpacity
+              onPress={() => { if (!submitting) setShowAddProduct(false); }}
+              accessibilityLabel="Close"
+              accessibilityRole="button"
+            >
+              <Ionicons name="close" size={24} color={C.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={ap.tempNote}>
+            ⚠ Using temporary test farmer ID — not real auth. Replace TEMP_TEST_FARMER_ID before production.
+          </Text>
+
+          <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+            <Text style={s.label}>Product Name</Text>
+            <TextInput
+              style={s.input}
+              placeholder="e.g. Maize"
+              placeholderTextColor={C.textMuted}
+              value={productName}
+              onChangeText={setProductName}
+              accessibilityLabel="Product name"
+            />
+
+            <Text style={s.label}>Category</Text>
+            <View style={ap.chipRow}>
+              {CATEGORIES.map((c) => (
+                <TouchableOpacity
+                  key={c}
+                  style={[ap.chip, category === c && ap.chipSelected]}
+                  onPress={() => setCategory(c)}
+                  accessibilityLabel={`Category ${c}`}
+                  accessibilityRole="radio"
+                >
+                  <Text style={[ap.chipText, category === c && ap.chipTextSelected]}>{c}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={s.label}>Quantity Available</Text>
+            <TextInput
+              style={s.input}
+              placeholder="e.g. 500"
+              placeholderTextColor={C.textMuted}
+              keyboardType="numeric"
+              value={quantityAvailable}
+              onChangeText={setQuantityAvailable}
+              accessibilityLabel="Quantity available"
+            />
+
+            <Text style={s.label}>Unit</Text>
+            <View style={ap.chipRow}>
+              {UNITS.map((u) => (
+                <TouchableOpacity
+                  key={u}
+                  style={[ap.chip, unit === u && ap.chipSelected]}
+                  onPress={() => setUnit(u)}
+                  accessibilityLabel={`Unit ${u}`}
+                  accessibilityRole="radio"
+                >
+                  <Text style={[ap.chipText, unit === u && ap.chipTextSelected]}>{u}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={s.label}>Description (optional)</Text>
+            <TextInput
+              style={[s.input, { height: 80, textAlignVertical: 'top' }]}
+              placeholder="Describe your product..."
+              placeholderTextColor={C.textMuted}
+              multiline
+              value={description}
+              onChangeText={setDescription}
+              accessibilityLabel="Description"
+            />
+
+            {submitError ? <Text style={ap.errorText}>{submitError}</Text> : null}
+
+            <TouchableOpacity
+              style={[s.createBtn, submitting && { opacity: 0.6 }, { marginBottom: 32 }]}
+              onPress={handleAddProduct}
+              disabled={submitting}
+              accessibilityLabel="Submit product"
+              accessibilityRole="button"
+            >
+              {submitting ? (
+                <ActivityIndicator color={C.white} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={20} color={C.white} />
+                  <Text style={s.createBtnText}>Submit Product</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -316,41 +337,12 @@ const s = StyleSheet.create({
   logoLeaf: { fontSize: 18, marginLeft: 4 },
   scroll: { flex: 1, backgroundColor: C.bg },
   scrollContent: { paddingBottom: 24 },
-  banner: {
-    backgroundColor: C.primary, marginHorizontal: 16, marginTop: 12,
-    borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center',
-  },
-  bannerIcon: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center', justifyContent: 'center', marginRight: 12,
-  },
-  bannerTitle: { color: C.white, fontSize: 16, fontWeight: '700' },
-  bannerSub: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 2 },
-  form: {
-    backgroundColor: C.white, marginHorizontal: 16,
-    marginTop: 12, borderRadius: 12, padding: 16,
-  },
   label: { fontSize: 13, fontWeight: '600', color: C.textPrimary, marginBottom: 6, marginTop: 10 },
   input: {
     borderWidth: 1, borderColor: C.border, borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 10,
     fontSize: 14, color: C.textPrimary, backgroundColor: C.white,
   },
-  row: { flexDirection: 'row', gap: 10 },
-  inputRow: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderColor: C.border, borderRadius: 8,
-    backgroundColor: C.white, paddingRight: 10,
-  },
-  uploadArea: {
-    borderWidth: 1.5, borderColor: C.border, borderStyle: 'dashed',
-    borderRadius: 10, height: 100, alignItems: 'center',
-    justifyContent: 'center', backgroundColor: '#F9F9F9', overflow: 'hidden',
-  },
-  uploadTitle: { fontSize: 14, fontWeight: '600', color: C.textSecondary, marginTop: 6 },
-  uploadSub: { fontSize: 12, color: C.textMuted, marginTop: 2 },
-  previewImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   createBtn: {
     backgroundColor: C.primary, borderRadius: 10, paddingVertical: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -363,4 +355,61 @@ const s = StyleSheet.create({
   },
   listingsTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary },
   viewAll: { fontSize: 13, color: C.primary, fontWeight: '600' },
+  emptyText: { fontSize: 14, color: C.textMuted, textAlign: 'center', marginTop: 24, marginHorizontal: 32 },
+});
+
+// ─── Add Product styles ───────────────────────────────────────
+const ap = StyleSheet.create({
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 28,
+    backgroundColor: C.primary,
+    borderRadius: 28,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  fabText: { color: C.white, fontWeight: '700', fontSize: 14 },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  modalTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: C.textPrimary },
+  tempNote: {
+    backgroundColor: '#FFF3CD',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFC107',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 6,
+    fontSize: 12,
+    color: '#856404',
+  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  chip: {
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: C.white,
+  },
+  chipSelected: { borderColor: C.primary, backgroundColor: C.badgeBg },
+  chipText: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
+  chipTextSelected: { color: C.primary, fontWeight: '700' },
+  errorText: { color: '#D32F2F', fontSize: 13, marginTop: 8, marginBottom: 4 },
 });
