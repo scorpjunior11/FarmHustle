@@ -1,5 +1,6 @@
 package com.farmhustle.farmhustle_backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -22,6 +23,7 @@ public class User {
     @Column(nullable = false, unique = true)
     private String phone;
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String passwordHash;
 

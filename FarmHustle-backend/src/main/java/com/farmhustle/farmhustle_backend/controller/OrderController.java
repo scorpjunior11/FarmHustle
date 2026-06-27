@@ -46,8 +46,12 @@ public class OrderController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<Order> updateStatus(@PathVariable UUID id, @RequestBody StatusRequest body) {
-        return ResponseEntity.ok(orderService.updateStatus(id, body.status()));
+    public ResponseEntity<?> updateStatus(@PathVariable UUID id, @RequestBody StatusRequest body) {
+        try {
+            return ResponseEntity.ok(orderService.updateStatus(id, body.status()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     private record StatusRequest(OrderStatus status) {}
