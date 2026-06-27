@@ -27,6 +27,9 @@ public class Product {
     @Column(nullable = false)
     private Unit unit;
 
+    @Column(nullable = false)
+    private Double price;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
@@ -81,6 +84,14 @@ public class Product {
 
     public void setUnit(Unit unit) {
         this.unit = unit;
+    }
+
+    public Double getPrice() {
+        return price;
+    }
+
+    public void setPrice(Double price) {
+        this.price = price;
     }
 
     public String getDescription() {
