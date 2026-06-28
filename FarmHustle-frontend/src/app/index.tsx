@@ -10,9 +10,8 @@ export default function HomeScreen() {
 
   const handleSelect = (role: NonNullable<Role>) => {
     setRole(role);
-    if (role === 'FARMER') router.push('/(farmer)');
-    else if (role === 'BUYER') router.push('/(buyer)');
-    else router.push('/(transport)');
+    // 🚀 Changed: Instead of pushing directly to dashboards, route them to the login screen
+    router.push('/login');
   };
 
   return (
