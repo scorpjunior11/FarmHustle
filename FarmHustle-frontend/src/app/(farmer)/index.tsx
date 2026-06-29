@@ -40,7 +40,7 @@ function ListingCard({ product }: { product: Product }) {
   return (
     <View style={cardStyles.card}>
       <Image
-        source={require('../../../assets/images/icon.png')}
+        source={require('../../../assets/images/Maize.jpg')}
         style={cardStyles.image}
         accessibilityLabel={`Photo of ${product.name}`}
       />

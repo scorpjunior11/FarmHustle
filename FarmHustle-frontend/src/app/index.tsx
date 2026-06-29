@@ -1,8 +1,7 @@
 import { useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { RoleContext } from './_layout';
-import type { Role } from './_layout';
+import { RoleContext, Role } from './_layout';
 
 export default function HomeScreen() {
   const { setRole } = useContext(RoleContext);
@@ -11,7 +10,7 @@ export default function HomeScreen() {
   const handleSelect = (role: NonNullable<Role>) => {
     setRole(role);
     // 🚀 Changed: Instead of pushing directly to dashboards, route them to the login screen
-    router.push('/login');
+    router.push('/(auth)/login');
   };
 
   return (
