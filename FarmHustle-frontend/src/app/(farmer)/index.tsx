@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons, Entypo } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { createProduct, getProducts, Product } from '../../api/client';
 
 // ─── Colors ───────────────────────────────────────────────────
@@ -110,6 +111,7 @@ const cardStyles = StyleSheet.create({
 
 // ─── Main Screen ──────────────────────────────────────────────
 export default function FarmerScreen() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [showAll, setShowAll] = useState(false);
@@ -170,7 +172,7 @@ export default function FarmerScreen() {
     <SafeAreaView style={s.safeArea} edges={['top']}>
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity accessibilityLabel="Profile" accessibilityRole="button">
+        <TouchableOpacity onPress={() => router.push('/(farmer)/profile')} accessibilityLabel="Profile" accessibilityRole="button">
           <Ionicons name="person-circle-outline" size={28} color={C.textPrimary} />
         </TouchableOpacity>
         <View style={s.logoRow}>
