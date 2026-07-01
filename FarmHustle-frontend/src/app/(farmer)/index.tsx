@@ -10,10 +10,12 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons, Entypo } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { createProduct, getProducts, Product } from '../../api/client';
 
 // ─── Colors ───────────────────────────────────────────────────
@@ -123,8 +125,27 @@ export default function FarmerScreen() {
   const [quantityAvailable, setQuantityAvailable] = useState('');
   const [unit, setUnit] = useState<Unit | null>(null);
   const [description, setDescription] = useState('');
+  const [price, setPrice] = useState('');
+  const [pickedImageUri, setPickedImageUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handlePickImage = async () => {
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow access to your photo library.');
+        return;
+      }
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+    if (!result.canceled) setPickedImageUri(result.assets[0].uri);
+  };
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -146,19 +167,27 @@ export default function FarmerScreen() {
     if (!category) { Alert.alert('Missing field', 'Please select a category.'); return; }
     if (!quantityAvailable.trim() || isNaN(Number(quantityAvailable))) { Alert.alert('Missing field', 'Please enter a valid quantity.'); return; }
     if (!unit) { Alert.alert('Missing field', 'Please select a unit.'); return; }
+    if (!price.trim() || isNaN(Number(price))) { Alert.alert('Missing field', 'Please enter a valid price.'); return; }
 
     setSubmitting(true);
     setSubmitError(null);
+
+    // TODO: if pickedImageUri is set, upload to Cloudinary first and get back a URL
+    // const imageUrl = pickedImageUri ? await uploadToCloudinary(pickedImageUri) : undefined;
+
     try {
       await createProduct({
         name: productName.trim(),
         category,
         quantityAvailable: Number(quantityAvailable),
         unit,
+        price: Number(price),
         description: description.trim() || undefined,
+        // imageUrl,   ← uncomment when Cloudinary is ready
       });
       Alert.alert('Success', 'Product created successfully!');
-      setProductName(''); setCategory(null); setQuantityAvailable(''); setUnit(null); setDescription('');
+      setProductName(''); setCategory(null); setQuantityAvailable('');
+      setUnit(null); setDescription(''); setPrice(''); setPickedImageUri(null);
       setShowAddProduct(false);
       fetchProducts();
     } catch (err) {
@@ -290,8 +319,47 @@ export default function FarmerScreen() {
               ))}
             </View>
 
-            <Text style={s.label}>Description (optional)</Text>
+            <Text style={s.label}>Price (GHS)</Text>
             <TextInput
+              style={s.input}
+              placeholder="e.g. 12"
+              placeholderTextColor={C.textMuted}
+              keyboardType="numeric"
+              value={price}
+              onChangeText={setPrice}
+              accessibilityLabel="Price in Ghana Cedis"
+            />
+
+            <Text style={s.label}>Product Photo (optional)</Text>
+            <TouchableOpacity
+              style={ap.photoArea}
+              onPress={handlePickImage}
+              accessibilityLabel="Upload product photo"
+              accessibilityRole="button"
+            >
+              {pickedImageUri ? (
+                <Image source={{ uri: pickedImageUri }} style={ap.photoPreview} />
+              ) : (
+                <View style={ap.photoPlaceholder}>
+                  <Ionicons name="camera-outline" size={28} color={C.textMuted} />
+                  <Text style={ap.photoText}>Tap to add a photo</Text>
+                  <Text style={ap.photoSub}>JPG or PNG, max 5MB</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            {pickedImageUri && (
+              <TouchableOpacity
+                onPress={() => setPickedImageUri(null)}
+                style={ap.removePhoto}
+                accessibilityLabel="Remove photo"
+                accessibilityRole="button"
+              >
+                <Ionicons name="close-circle" size={16} color="#DC2626" />
+                <Text style={ap.removePhotoText}>Remove photo</Text>
+              </TouchableOpacity>
+            )}
+
+            <Text style={s.label}>Description (optional)</Text>            <TextInput
               style={[s.input, { height: 80, textAlignVertical: 'top' }]}
               placeholder="Describe your product..."
               placeholderTextColor={C.textMuted}
@@ -414,4 +482,14 @@ const ap = StyleSheet.create({
   chipText: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
   chipTextSelected: { color: C.primary, fontWeight: '700' },
   errorText: { color: '#D32F2F', fontSize: 13, marginTop: 8, marginBottom: 4 },
+  photoArea: {
+    borderWidth: 1.5, borderColor: C.border, borderStyle: 'dashed',
+    borderRadius: 10, overflow: 'hidden', backgroundColor: '#F9F9F9',
+  },
+  photoPreview: { width: '100%', height: 160, resizeMode: 'cover' },
+  photoPlaceholder: { height: 110, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  photoText: { fontSize: 14, fontWeight: '600', color: C.textSecondary },
+  photoSub: { fontSize: 12, color: C.textMuted },
+  removePhoto: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  removePhotoText: { fontSize: 12, color: '#DC2626', fontWeight: '600' },
 });
