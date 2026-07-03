@@ -17,7 +17,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public User signup(String name, String email, String phone, String rawPassword, Role role, String region) {
+    public User signup(String name, String email, String phone, String rawPassword, Role role, String city) {
         if (userRepository.findByEmail(email).isPresent()) {
             throw new RuntimeException("Email already registered");
         }
@@ -27,7 +27,7 @@ public class AuthService {
         user.setPhone(phone);
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setRole(role);
-        user.setRegion(region);
+        user.setCity(city);
         user.setIsActive(true);
         return userRepository.save(user);
     }

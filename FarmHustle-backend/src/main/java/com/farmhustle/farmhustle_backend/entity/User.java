@@ -32,7 +32,7 @@ public class User {
     private Role role;
 
     @Column(nullable = false)
-    private String region;
+    private String city;
 
     @Column
     private String profilePhotoUrl;
@@ -91,12 +91,12 @@ public class User {
         this.role = role;
     }
 
-    public String getRegion() {
-        return region;
+    public String getCity() {
+        return city;
     }
 
-    public void setRegion(String region) {
-        this.region = region;
+    public void setCity(String city) {
+        this.city = city;
     }
 
     public String getProfilePhotoUrl() {

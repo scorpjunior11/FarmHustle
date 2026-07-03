@@ -41,6 +41,7 @@ export default function BuyerLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="product/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

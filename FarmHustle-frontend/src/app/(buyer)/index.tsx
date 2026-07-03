@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { getProducts, Product } from "../../api/client";
 
 // ─── Local Images (same files used by the farmer screen) ───────────────────────
@@ -102,8 +103,7 @@ export default function BuyerHome() {
     setLikedMap((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const handleBuy = (item: Product) => {
-    // TODO (Sprint 2): navigate to order / checkout screen
-    console.log("Buy pressed:", item.name);
+    router.push({ pathname: "/product/[id]", params: { id: item.id } });
   };
 
   return (

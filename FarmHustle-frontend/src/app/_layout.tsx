@@ -1,5 +1,6 @@
 import { createContext, useState } from 'react';
 import { Stack } from 'expo-router';
+import { AuthProvider } from '../context/AuthContext';
 
 export type Role = 'FARMER' | 'BUYER' | 'TRANSPORT' | null;
 
@@ -17,8 +18,10 @@ export default function RootLayout() {
   const [role, setRole] = useState<Role>(null);
 
   return (
-    <RoleContext.Provider value={{ role, setRole }}>
-      <Stack screenOptions={{ headerShown: false }} />
-    </RoleContext.Provider>
+    <AuthProvider>
+      <RoleContext.Provider value={{ role, setRole }}>
+        <Stack screenOptions={{ headerShown: false }} />
+      </RoleContext.Provider>
+    </AuthProvider>
   );
 }

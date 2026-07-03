@@ -6,6 +6,7 @@ export type Product = {
   category: "GRAINS" | "VEGETABLES" | "FRUITS" | "TUBERS" | "OTHER";
   quantityAvailable: number;
   unit: "KG" | "BAG" | "CRATE" | "BUNCH";
+  price: number;
   description: string | null;
   isActive: boolean;
   createdAt: string;
@@ -37,6 +38,8 @@ export async function createProduct(data: {
   category: string;
   quantityAvailable: number;
   unit: string;
+  price: number;
+  farmerId: string;
   description?: string;
 }): Promise<Product> {
   const response = await fetch(`${BASE_URL}/api/products`, {
@@ -47,8 +50,9 @@ export async function createProduct(data: {
       category: data.category,
       quantityAvailable: data.quantityAvailable,
       unit: data.unit,
+      price: data.price,
       description: data.description,
-      farmer: { id: TEMP_TEST_FARMER_ID },
+      farmer: { id: data.farmerId },
     }),
   });
   if (!response.ok) {
@@ -56,4 +60,84 @@ export async function createProduct(data: {
     throw new Error(`${response.status}: ${errorText}`);
   }
   return response.json() as Promise<Product>;
+}
+
+// TEMPORARY: hardcoded buyer id until logged-in user is tracked. Replace before submission. See PROGRESS.md.
+export const TEMP_TEST_BUYER_ID = "be65f2b6-6a10-43a5-8da5-5e267fe071f7";
+
+export async function createOrder(data: {
+  buyerId: string;
+  farmerId: string;
+  productId: string;
+  quantity: number;
+  initialPrice: number;
+}): Promise<unknown> {
+  const response = await fetch(`${BASE_URL}/api/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      buyer: { id: data.buyerId },
+      farmer: { id: data.farmerId },
+      product: { id: data.productId },
+      quantity: data.quantity,
+      initialPrice: data.initialPrice,
+      platformCommissionRate: 0.05,
+    }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json();
+}
+
+// ─── Auth ───────────────────────────────────────────────────
+
+export type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: "FARMER" | "BUYER" | "TRANSPORT_PROVIDER";
+  city: string;
+  profilePhotoUrl: string | null;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export async function signup(data: {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  role: string;
+  city: string;
+}): Promise<AuthUser> {
+  const response = await fetch(`${BASE_URL}/api/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Signup failed");
+  }
+
+  return response.json() as Promise<AuthUser>;
+}
+
+export async function login(data: { email: string; password: string }): Promise<AuthUser> {
+  const response = await fetch(`${BASE_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Login failed");
+  }
+
+  return response.json() as Promise<AuthUser>;
 }

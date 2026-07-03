@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons, Entypo } from '@expo/vector-icons';
 import { createProduct, getProducts, Product } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 // ─── Colors ───────────────────────────────────────────────────
 const C = {
@@ -110,6 +111,7 @@ const cardStyles = StyleSheet.create({
 
 // ─── Main Screen ──────────────────────────────────────────────
 export default function FarmerScreen() {
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [showAll, setShowAll] = useState(false);
@@ -119,6 +121,7 @@ export default function FarmerScreen() {
   const [productName, setProductName] = useState('');
   const [category, setCategory] = useState<Category | null>(null);
   const [quantityAvailable, setQuantityAvailable] = useState('');
+  const [price, setPrice] = useState('');
   const [unit, setUnit] = useState<Unit | null>(null);
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -140,9 +143,11 @@ export default function FarmerScreen() {
   const visibleProducts = showAll ? products : products.slice(0, 2);
 
   const handleAddProduct = async () => {
+    if (!user) { Alert.alert('Not logged in', 'Please log in to add a product.'); return; }
     if (!productName.trim()) { Alert.alert('Missing field', 'Please enter a product name.'); return; }
     if (!category) { Alert.alert('Missing field', 'Please select a category.'); return; }
     if (!quantityAvailable.trim() || isNaN(Number(quantityAvailable))) { Alert.alert('Missing field', 'Please enter a valid quantity.'); return; }
+    if (!price.trim() || isNaN(Number(price)) || Number(price) <= 0) { Alert.alert('Missing field', 'Please enter a valid price greater than 0.'); return; }
     if (!unit) { Alert.alert('Missing field', 'Please select a unit.'); return; }
 
     setSubmitting(true);
@@ -152,11 +157,13 @@ export default function FarmerScreen() {
         name: productName.trim(),
         category,
         quantityAvailable: Number(quantityAvailable),
+        price: Number(price),
         unit,
+        farmerId: user.id,
         description: description.trim() || undefined,
       });
       Alert.alert('Success', 'Product created successfully!');
-      setProductName(''); setCategory(null); setQuantityAvailable(''); setUnit(null); setDescription('');
+      setProductName(''); setCategory(null); setQuantityAvailable(''); setPrice(''); setUnit(null); setDescription('');
       setShowAddProduct(false);
       fetchProducts();
     } catch (err) {
@@ -232,10 +239,6 @@ export default function FarmerScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={ap.tempNote}>
-            ⚠ Using temporary test farmer ID — not real auth. Replace TEMP_TEST_FARMER_ID before production.
-          </Text>
-
           <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
             <Text style={s.label}>Product Name</Text>
             <TextInput
@@ -287,6 +290,17 @@ export default function FarmerScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+
+            <Text style={s.label}>Price (per unit, GHS)</Text>
+            <TextInput
+              style={s.input}
+              placeholder="e.g. 12.50"
+              placeholderTextColor={C.textMuted}
+              keyboardType="numeric"
+              value={price}
+              onChangeText={setPrice}
+              accessibilityLabel="Price per unit"
+            />
 
             <Text style={s.label}>Description (optional)</Text>
             <TextInput
@@ -387,18 +401,6 @@ const ap = StyleSheet.create({
     borderBottomColor: C.border,
   },
   modalTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: C.textPrimary },
-  tempNote: {
-    backgroundColor: '#FFF3CD',
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFC107',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 6,
-    fontSize: 12,
-    color: '#856404',
-  },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: {
     borderWidth: 1,

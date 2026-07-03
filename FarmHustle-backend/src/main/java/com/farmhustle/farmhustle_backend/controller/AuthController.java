@@ -20,7 +20,7 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody SignupRequest body) {
         try {
-            User user = authService.signup(body.name(), body.email(), body.phone(), body.password(), body.role(), body.region());
+            User user = authService.signup(body.name(), body.email(), body.phone(), body.password(), body.role(), body.city());
             return ResponseEntity.status(HttpStatus.CREATED).body(user);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -36,6 +36,6 @@ public class AuthController {
         }
     }
 
-    private record SignupRequest(String name, String email, String phone, String password, Role role, String region) {}
+    private record SignupRequest(String name, String email, String phone, String password, Role role, String city) {}
     private record LoginRequest(String email, String password) {}
 }
