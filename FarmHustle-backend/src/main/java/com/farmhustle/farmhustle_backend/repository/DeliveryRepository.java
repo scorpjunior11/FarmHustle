@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface DeliveryRepository extends JpaRepository<Delivery, UUID> {
-    List<Delivery> findByProviderId(UUID providerId);
-    List<Delivery> findByOrderId(UUID orderId);
+    List<Delivery> findAllByOrderByCreatedAtDesc();
+    List<Delivery> findByProviderIdOrderByCreatedAtDesc(UUID providerId);
+    List<Delivery> findByOrderIdOrderByCreatedAtDesc(UUID orderId);
 }

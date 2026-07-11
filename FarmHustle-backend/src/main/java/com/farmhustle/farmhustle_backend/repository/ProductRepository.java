@@ -9,7 +9,9 @@ import java.util.UUID;
 
 public interface ProductRepository extends JpaRepository<Product, UUID> {
 
-    List<Product> findAllByFarmer(User farmer);
+    List<Product> findAllByOrderByCreatedAtDesc();
 
-    List<Product> findAllByIsActive(Boolean isActive);
+    List<Product> findAllByFarmerOrderByCreatedAtDesc(User farmer);
+
+    List<Product> findAllByIsActiveOrderByCreatedAtDesc(Boolean isActive);
 }

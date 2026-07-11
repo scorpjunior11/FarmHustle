@@ -44,7 +44,7 @@ public class DeliveryService {
     }
 
     public List<Delivery> getAllDeliveries() {
-        return deliveryRepository.findAll();
+        return deliveryRepository.findAllByOrderByCreatedAtDesc();
     }
 
     public Delivery getDeliveryById(UUID id) {
@@ -53,11 +53,11 @@ public class DeliveryService {
     }
 
     public List<Delivery> getDeliveriesByProvider(UUID providerId) {
-        return deliveryRepository.findByProviderId(providerId);
+        return deliveryRepository.findByProviderIdOrderByCreatedAtDesc(providerId);
     }
 
     public List<Delivery> getDeliveriesByOrder(UUID orderId) {
-        return deliveryRepository.findByOrderId(orderId);
+        return deliveryRepository.findByOrderIdOrderByCreatedAtDesc(orderId);
     }
 
     public Delivery acceptDelivery(UUID deliveryId, Double deliveryFee, Double commissionAmount) {

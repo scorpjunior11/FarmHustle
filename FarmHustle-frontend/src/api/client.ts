@@ -17,7 +17,7 @@ export type Product = {
     email: string;
     phone: string;
     role: "FARMER" | "BUYER" | "TRANSPORT_PROVIDER";
-    region: string;
+    city: string;
     profilePhotoUrl: string | null;
     isActive: boolean;
     createdAt: string;
@@ -89,6 +89,63 @@ export async function createOrder(data: {
     throw new Error(`${response.status}: ${errorText}`);
   }
   return response.json();
+}
+
+export type OrderStatus =
+  | "PENDING"
+  | "NEGOTIATING"
+  | "AWAITING_PAYMENT"
+  | "PAID"
+  | "AWAITING_TRANSPORT"
+  | "IN_TRANSIT"
+  | "DELIVERED"
+  | "COMPLETED"
+  | "CANCELLED";
+
+export type Order = {
+  id: string;
+  buyer: AuthUser;
+  farmer: AuthUser;
+  product: Product;
+  quantity: number;
+  initialPrice: number;
+  agreedPrice: number | null;
+  platformCommissionRate: number;
+  platformCommissionAmount: number | null;
+  status: OrderStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function getOrdersByBuyer(buyerId: string): Promise<Order[]> {
+  const response = await fetch(`${BASE_URL}/api/orders/buyer/${buyerId}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Order[]>;
+}
+
+export async function getOrdersByFarmer(farmerId: string): Promise<Order[]> {
+  const response = await fetch(`${BASE_URL}/api/orders/farmer/${farmerId}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Order[]>;
+}
+
+export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order> {
+  const response = await fetch(`${BASE_URL}/api/orders/${orderId}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Order>;
 }
 
 // ─── Auth ───────────────────────────────────────────────────

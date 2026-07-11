@@ -62,7 +62,7 @@ const CropCard = ({
 
         <View style={styles.locationRow}>
           <Ionicons name="location-outline" size={13} color="#757575" />
-          <Text style={styles.locationText}>{item.farmer.region}</Text>
+          <Text style={styles.locationText}>{item.farmer.city}</Text>
         </View>
 
         <View style={styles.statsRow}>
@@ -96,7 +96,7 @@ export default function BuyerHome() {
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.farmer.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.farmer.region.toLowerCase().includes(search.toLowerCase())
+      (p.farmer?.city ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   const toggleLike = (id: string) =>

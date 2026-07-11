@@ -13,8 +13,8 @@ public class Delivery {
     @Column(updatable = false, nullable = false)
     private UUID id;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "order_id", nullable = false)
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "order_id", nullable = true)
     private Order order;
 
     @ManyToOne(optional = false)
@@ -26,6 +26,12 @@ public class Delivery {
 
     @Column
     private Double commissionAmount;
+
+    @Column
+    private String pickupLocation;
+
+    @Column
+    private String deliveryLocation;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -81,6 +87,22 @@ public class Delivery {
 
     public void setCommissionAmount(Double commissionAmount) {
         this.commissionAmount = commissionAmount;
+    }
+
+    public String getPickupLocation() {
+        return pickupLocation;
+    }
+
+    public void setPickupLocation(String pickupLocation) {
+        this.pickupLocation = pickupLocation;
+    }
+
+    public String getDeliveryLocation() {
+        return deliveryLocation;
+    }
+
+    public void setDeliveryLocation(String deliveryLocation) {
+        this.deliveryLocation = deliveryLocation;
     }
 
     public TransportStatus getStatus() {

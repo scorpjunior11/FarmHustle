@@ -57,7 +57,7 @@ function ListingCard({ product }: { product: Product }) {
         </Text>
         <View style={cardStyles.locationRow}>
           <MaterialIcons name="location-pin" size={13} color={C.textMuted} />
-          <Text style={cardStyles.locationText}>{product.farmer.region}</Text>
+          <Text style={cardStyles.locationText}>{product.farmer.city}</Text>
         </View>
       </View>
       <TouchableOpacity style={cardStyles.menu} accessibilityLabel={`Options for ${product.name}`} accessibilityRole="button">

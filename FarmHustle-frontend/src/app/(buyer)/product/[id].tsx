@@ -15,9 +15,9 @@ import { useLocalSearchParams, router } from "expo-router";
 import {
   getProducts,
   createOrder,
-  TEMP_TEST_BUYER_ID,
   Product,
 } from "../../../api/client";
+import { useAuth } from "../../../context/AuthContext";
 
 const THEME = {
   deepGreen: "#1B3A2B",
@@ -43,6 +43,7 @@ const CATEGORY_FG: Record<string, string> = {
 };
 
 export default function ProductDetail() {
+  const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,12 +63,16 @@ export default function ProductDetail() {
 
   async function handleBuyListing() {
     if (!product) return;
+    if (!user) {
+      Alert.alert("Not logged in", "Please log in to place an order.");
+      return;
+    }
     setOrdering(true);
     try {
       const quantity = product.quantityAvailable;
       const initialPrice = product.price * quantity;
       await createOrder({
-        buyerId: TEMP_TEST_BUYER_ID,
+        buyerId: user.id,
         farmerId: product.farmer.id,
         productId: product.id,
         quantity,
@@ -176,7 +181,7 @@ export default function ProductDetail() {
           <Text style={styles.sectionTitle}>Farmer</Text>
           <View style={styles.farmerCard}>
             <FarmerRow icon="person-outline" value={product.farmer.name} />
-            <FarmerRow icon="location-outline" value={product.farmer.region} />
+            <FarmerRow icon="location-outline" value={product.farmer.city} />
             <FarmerRow icon="call-outline" value={product.farmer.phone} />
           </View>
         </View>

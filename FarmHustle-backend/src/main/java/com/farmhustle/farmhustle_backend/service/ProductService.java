@@ -23,7 +23,7 @@ public class ProductService {
     }
 
     public List<Product> getAll() {
-        return productRepository.findAll();
+        return productRepository.findAllByOrderByCreatedAtDesc();
     }
 
     public Optional<Product> getById(UUID id) {
@@ -31,11 +31,11 @@ public class ProductService {
     }
 
     public List<Product> getByFarmer(User farmer) {
-        return productRepository.findAllByFarmer(farmer);
+        return productRepository.findAllByFarmerOrderByCreatedAtDesc(farmer);
     }
 
     public List<Product> getActive() {
-        return productRepository.findAllByIsActive(true);
+        return productRepository.findAllByIsActiveOrderByCreatedAtDesc(true);
     }
 
     public Product update(Product product) {

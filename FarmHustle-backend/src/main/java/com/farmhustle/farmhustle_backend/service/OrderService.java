@@ -43,13 +43,13 @@ public class OrderService {
     }
 
     public Order createOrder(Order order) {
-        order.setStatus(OrderStatus.AWAITING_PAYMENT);
+        order.setStatus(OrderStatus.PENDING);
         order.setUpdatedAt(LocalDateTime.now());
         return orderRepository.save(order);
     }
 
     public List<Order> getAllOrders() {
-        return orderRepository.findAll();
+        return orderRepository.findAllByOrderByCreatedAtDesc();
     }
 
     public Order getOrderById(UUID id) {
@@ -58,11 +58,11 @@ public class OrderService {
     }
 
     public List<Order> getOrdersByBuyer(UUID buyerId) {
-        return orderRepository.findByBuyerId(buyerId);
+        return orderRepository.findByBuyerIdOrderByCreatedAtDesc(buyerId);
     }
 
     public List<Order> getOrdersByFarmer(UUID farmerId) {
-        return orderRepository.findByFarmerId(farmerId);
+        return orderRepository.findByFarmerIdOrderByCreatedAtDesc(farmerId);
     }
 
     public Order updateStatus(UUID orderId, OrderStatus newStatus) {
