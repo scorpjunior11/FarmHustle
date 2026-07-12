@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -14,12 +14,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect } from "expo-router";
 import {
   getOrdersByBuyer,
   requestDelivery,
   getDeliveries,
   confirmDeliveryByBuyer,
   cancelDelivery,
+  initializePayment,
+  initializeDeliveryPayment,
   Order,
   OrderStatus,
   Delivery,
@@ -53,6 +56,8 @@ export default function OrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [confirmingDeliveryId, setConfirmingDeliveryId] = useState<string | null>(null);
   const [cancelingDeliveryId, setCancelingDeliveryId] = useState<string | null>(null);
+  const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
+  const [payingDeliveryId, setPayingDeliveryId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) {
@@ -74,9 +79,13 @@ export default function OrdersScreen() {
     }
   }, [user]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Runs on mount and every time the screen regains focus — so returning
+  // from the payment screen refreshes the list and shows PAID.
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -113,6 +122,38 @@ export default function OrdersScreen() {
         },
       ]
     );
+  };
+
+  const handlePayNow = async (order: Order) => {
+    setPayingOrderId(order.id);
+    try {
+      const { authorizationUrl, reference } = await initializePayment(order.id);
+      router.push({
+        pathname: "/payment-webview",
+        params: { authorizationUrl, reference },
+      });
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "Something went wrong.";
+      Alert.alert("Could not start payment", raw.replace(/^\d{3}:\s*/, ""));
+    } finally {
+      setPayingOrderId(null);
+    }
+  };
+
+  const handlePayDeliveryFee = async (delivery: Delivery) => {
+    setPayingDeliveryId(delivery.id);
+    try {
+      const { authorizationUrl, reference } = await initializeDeliveryPayment(delivery.id);
+      router.push({
+        pathname: "/payment-webview",
+        params: { authorizationUrl, reference, kind: "delivery" },
+      });
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "Something went wrong.";
+      Alert.alert("Could not start payment", raw.replace(/^\d{3}:\s*/, ""));
+    } finally {
+      setPayingDeliveryId(null);
+    }
   };
 
   const handleCancelDelivery = (delivery: Delivery) => {
@@ -238,9 +279,13 @@ export default function OrdersScreen() {
                 delivery={delivery}
                 confirming={delivery !== null && confirmingDeliveryId === delivery.id}
                 canceling={delivery !== null && cancelingDeliveryId === delivery.id}
+                paying={payingOrderId === item.id}
+                payingFee={delivery !== null && payingDeliveryId === delivery.id}
                 onRequestTransport={() => openTransportModal(item)}
                 onConfirmReceived={() => delivery && handleConfirmReceived(delivery)}
                 onCancelDelivery={() => delivery && handleCancelDelivery(delivery)}
+                onPayNow={() => handlePayNow(item)}
+                onPayDeliveryFee={() => delivery && handlePayDeliveryFee(delivery)}
               />
             );
           }}
@@ -371,17 +416,25 @@ function OrderCard({
   delivery,
   confirming,
   canceling,
+  paying,
+  payingFee,
   onRequestTransport,
   onConfirmReceived,
   onCancelDelivery,
+  onPayNow,
+  onPayDeliveryFee,
 }: {
   order: Order;
   delivery: Delivery | null;
   confirming: boolean;
   canceling: boolean;
+  paying: boolean;
+  payingFee: boolean;
   onRequestTransport: () => void;
   onConfirmReceived: () => void;
   onCancelDelivery: () => void;
+  onPayNow: () => void;
+  onPayDeliveryFee: () => void;
 }) {
   const meta = STATUS_META[order.status];
   const price = order.agreedPrice ?? order.initialPrice;
@@ -414,6 +467,24 @@ function OrderCard({
 
       <Text style={styles.priceText}>GHS {price}</Text>
 
+      {order.status === "AWAITING_PAYMENT" ? (
+        <TouchableOpacity
+          style={[styles.requestBtn, paying && styles.btnDisabled]}
+          onPress={onPayNow}
+          disabled={paying}
+          activeOpacity={0.85}
+        >
+          {paying ? (
+            <ActivityIndicator color={THEME.white} size="small" />
+          ) : (
+            <>
+              <Ionicons name="card-outline" size={16} color={THEME.white} />
+              <Text style={styles.requestBtnText}>Pay now</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      ) : null}
+
       {order.status === "PAID" && !delivery ? (
         <TouchableOpacity
           style={styles.requestBtn}
@@ -431,6 +502,31 @@ function OrderCard({
           <Text style={[styles.transportText, { color: transportMeta.color }]}>
             {transportStatusLabel(delivery)}
           </Text>
+        </View>
+      ) : null}
+
+      {delivery && delivery.status === "ACCEPTED" && delivery.feePaid !== true ? (
+        <TouchableOpacity
+          style={[styles.requestBtn, payingFee && styles.btnDisabled]}
+          onPress={onPayDeliveryFee}
+          disabled={payingFee}
+          activeOpacity={0.85}
+        >
+          {payingFee ? (
+            <ActivityIndicator color={THEME.white} size="small" />
+          ) : (
+            <>
+              <Ionicons name="card-outline" size={16} color={THEME.white} />
+              <Text style={styles.requestBtnText}>
+                Pay delivery fee — GHS {delivery.deliveryFee ?? 0}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      ) : delivery && delivery.feePaid === true ? (
+        <View style={styles.feePaidRow}>
+          <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
+          <Text style={styles.feePaidText}>Delivery fee paid</Text>
         </View>
       ) : null}
 
@@ -539,6 +635,14 @@ const styles = StyleSheet.create({
 
   cancelLink: { marginTop: 8, alignSelf: "flex-start" },
   cancelLinkText: { fontSize: 12, fontWeight: "700", color: "#C62828" },
+
+  feePaidRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  feePaidText: { fontSize: 13, fontWeight: "600", color: "#2E7D32" },
 
   waitingRow: {
     marginTop: 12,

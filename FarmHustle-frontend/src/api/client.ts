@@ -176,6 +176,7 @@ export type Delivery = {
   } | null;
   providerConfirmed: boolean;
   buyerConfirmed: boolean;
+  feePaid: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -257,6 +258,60 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
     throw new Error(`${response.status}: ${errorText}`);
   }
   return response.json() as Promise<Order>;
+}
+
+// ─── Payments ───────────────────────────────────────────────
+
+export async function initializePayment(
+  orderId: string
+): Promise<{ authorizationUrl: string; reference: string }> {
+  const response = await fetch(`${BASE_URL}/api/payments/initialize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderId }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<{ authorizationUrl: string; reference: string }>;
+}
+
+export async function verifyPayment(
+  reference: string
+): Promise<{ status: string; order: Order | null }> {
+  const response = await fetch(`${BASE_URL}/api/payments/verify/${reference}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<{ status: string; order: Order | null }>;
+}
+
+export async function initializeDeliveryPayment(
+  deliveryId: string
+): Promise<{ authorizationUrl: string; reference: string }> {
+  const response = await fetch(`${BASE_URL}/api/payments/delivery/initialize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ deliveryId }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<{ authorizationUrl: string; reference: string }>;
+}
+
+export async function verifyDeliveryPayment(
+  reference: string
+): Promise<{ status: string; delivery: Delivery | null }> {
+  const response = await fetch(`${BASE_URL}/api/payments/delivery/verify/${reference}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<{ status: string; delivery: Delivery | null }>;
 }
 
 // ─── Auth ───────────────────────────────────────────────────

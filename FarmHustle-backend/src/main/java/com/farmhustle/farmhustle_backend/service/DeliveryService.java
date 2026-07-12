@@ -81,6 +81,13 @@ public class DeliveryService {
         return deliveryRepository.save(delivery);
     }
 
+    public Delivery markFeePaid(UUID deliveryId) {
+        Delivery delivery = getDeliveryById(deliveryId);
+        delivery.setFeePaid(true);
+        delivery.setUpdatedAt(LocalDateTime.now());
+        return deliveryRepository.save(delivery);
+    }
+
     public Delivery updateStatus(UUID deliveryId, TransportStatus newStatus) {
         Delivery delivery = getDeliveryById(deliveryId);
         TransportStatus current = delivery.getStatus();

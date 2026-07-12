@@ -33,6 +33,9 @@ public class Delivery {
     @Column
     private String deliveryLocation;
 
+    @Column
+    private Boolean feePaid = false;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TransportStatus status;
@@ -103,6 +106,14 @@ public class Delivery {
 
     public void setDeliveryLocation(String deliveryLocation) {
         this.deliveryLocation = deliveryLocation;
+    }
+
+    public Boolean getFeePaid() {
+        return feePaid;
+    }
+
+    public void setFeePaid(Boolean feePaid) {
+        this.feePaid = feePaid;
     }
 
     public TransportStatus getStatus() {
