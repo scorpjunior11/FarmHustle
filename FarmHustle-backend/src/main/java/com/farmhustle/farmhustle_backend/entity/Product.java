@@ -33,6 +33,9 @@ public class Product {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column
+    private String imageUrl;
+
     @Column(nullable = false)
     private Boolean isActive = true;
 
@@ -100,6 +103,14 @@ public class Product {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public Boolean getIsActive() {

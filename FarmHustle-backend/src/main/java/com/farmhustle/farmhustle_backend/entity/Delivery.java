@@ -17,8 +17,8 @@ public class Delivery {
     @JoinColumn(name = "order_id", nullable = true)
     private Order order;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "provider_id", nullable = false)
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "provider_id", nullable = true)
     private User provider;
 
     @Column

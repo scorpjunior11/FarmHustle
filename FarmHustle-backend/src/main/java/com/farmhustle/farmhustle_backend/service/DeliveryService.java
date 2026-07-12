@@ -2,7 +2,9 @@ package com.farmhustle.farmhustle_backend.service;
 
 import com.farmhustle.farmhustle_backend.entity.Delivery;
 import com.farmhustle.farmhustle_backend.entity.TransportStatus;
+import com.farmhustle.farmhustle_backend.entity.User;
 import com.farmhustle.farmhustle_backend.repository.DeliveryRepository;
+import com.farmhustle.farmhustle_backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -29,9 +31,11 @@ public class DeliveryService {
     }
 
     private final DeliveryRepository deliveryRepository;
+    private final UserRepository userRepository;
 
-    public DeliveryService(DeliveryRepository deliveryRepository) {
+    public DeliveryService(DeliveryRepository deliveryRepository, UserRepository userRepository) {
         this.deliveryRepository = deliveryRepository;
+        this.userRepository = userRepository;
     }
 
     public Delivery requestDelivery(Delivery delivery) {
@@ -60,13 +64,16 @@ public class DeliveryService {
         return deliveryRepository.findByOrderIdOrderByCreatedAtDesc(orderId);
     }
 
-    public Delivery acceptDelivery(UUID deliveryId, Double deliveryFee, Double commissionAmount) {
+    public Delivery acceptDelivery(UUID deliveryId, UUID providerId, Double deliveryFee, Double commissionAmount) {
         Delivery delivery = getDeliveryById(deliveryId);
         if (delivery.getStatus() != TransportStatus.REQUESTED) {
             throw new RuntimeException(
                     "Delivery can only be accepted from REQUESTED status, current status: "
                             + delivery.getStatus());
         }
+        User provider = userRepository.findById(providerId)
+                .orElseThrow(() -> new RuntimeException("Provider not found: " + providerId));
+        delivery.setProvider(provider);
         delivery.setDeliveryFee(deliveryFee);
         delivery.setCommissionAmount(commissionAmount);
         delivery.setStatus(TransportStatus.ACCEPTED);

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   StatusBar,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -130,10 +131,19 @@ export default function ProductDetail() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Image placeholder */}
-        <View style={styles.imagePlaceholder}>
-          <Ionicons name="leaf" size={64} color={THEME.accent} />
-        </View>
+        {/* Hero image, falling back to the placeholder when there's no photo */}
+        {product.imageUrl ? (
+          <Image
+            source={{ uri: product.imageUrl }}
+            style={styles.heroImage}
+            resizeMode="cover"
+            accessibilityLabel={`Photo of ${product.name}`}
+          />
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <Ionicons name="leaf" size={64} color={THEME.accent} />
+          </View>
+        )}
 
         {/* Name + category chip */}
         <View style={styles.nameRow}>
@@ -260,6 +270,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5E9",
     justifyContent: "center",
     alignItems: "center",
+  },
+  heroImage: {
+    height: 220,
+    width: "100%",
+    backgroundColor: "#E8F5E9",
   },
 
   nameRow: {

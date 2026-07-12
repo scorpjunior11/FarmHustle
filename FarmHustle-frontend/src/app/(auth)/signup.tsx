@@ -25,6 +25,9 @@ const THEME = {
   bgLight: "#F4F7F5",
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^0\d{9}$/;
+
 type Role = "FARMER" | "BUYER" | "TRANSPORT_PROVIDER";
 
 const ROLE_OPTIONS: { label: string; value: Role; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -47,6 +50,18 @@ export default function SignupScreen() {
   async function handleSignup() {
     if (!name.trim() || !email.trim() || !phone.trim() || !password.trim() || !city.trim()) {
       setError("Please fill in all fields.");
+      return;
+    }
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setError("Please enter a valid email");
+      return;
+    }
+    if (!PHONE_REGEX.test(phone.trim())) {
+      setError("Enter a valid 10-digit phone number");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
     if (!role) {
@@ -112,7 +127,7 @@ export default function SignupScreen() {
           <Field label="Phone" icon="call-outline">
             <TextInput
               style={styles.input}
-              placeholder="+234 800 000 0000"
+              placeholder="0241234567"
               placeholderTextColor={THEME.placeholder}
               value={phone}
               onChangeText={setPhone}

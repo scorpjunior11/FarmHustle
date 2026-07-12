@@ -8,6 +8,7 @@ export type Product = {
   unit: "KG" | "BAG" | "CRATE" | "BUNCH";
   price: number;
   description: string | null;
+  imageUrl?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -30,9 +31,6 @@ export async function getProducts(): Promise<Product[]> {
   return data;
 }
 
-// TEMPORARY: hardcoded farmer id until real auth exists. Replace before submission. See PROGRESS.md.
-export const TEMP_TEST_FARMER_ID = "be65f2b6-6a10-43a5-8da5-5e267fe071f7";
-
 export async function createProduct(data: {
   name: string;
   category: string;
@@ -41,6 +39,7 @@ export async function createProduct(data: {
   price: number;
   farmerId: string;
   description?: string;
+  imageUrl?: string;
 }): Promise<Product> {
   const response = await fetch(`${BASE_URL}/api/products`, {
     method: 'POST',
@@ -52,6 +51,7 @@ export async function createProduct(data: {
       unit: data.unit,
       price: data.price,
       description: data.description,
+      imageUrl: data.imageUrl,
       farmer: { id: data.farmerId },
     }),
   });
@@ -61,9 +61,6 @@ export async function createProduct(data: {
   }
   return response.json() as Promise<Product>;
 }
-
-// TEMPORARY: hardcoded buyer id until logged-in user is tracked. Replace before submission. See PROGRESS.md.
-export const TEMP_TEST_BUYER_ID = "be65f2b6-6a10-43a5-8da5-5e267fe071f7";
 
 export async function createOrder(data: {
   buyerId: string;
@@ -135,6 +132,120 @@ export async function getOrdersByFarmer(farmerId: string): Promise<Order[]> {
   return response.json() as Promise<Order[]>;
 }
 
+export async function requestDelivery(data: {
+  orderId: string;
+  pickupLocation: string;
+  deliveryLocation: string;
+}): Promise<unknown> {
+  const response = await fetch(`${BASE_URL}/api/deliveries`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      order: { id: data.orderId },
+      pickupLocation: data.pickupLocation,
+      deliveryLocation: data.deliveryLocation,
+    }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json();
+}
+
+export type DeliveryStatus =
+  | "REQUESTED"
+  | "ACCEPTED"
+  | "IN_TRANSIT"
+  | "DELIVERED"
+  | "DECLINED";
+
+export type Delivery = {
+  id: string;
+  status: DeliveryStatus;
+  pickupLocation: string | null;
+  deliveryLocation: string | null;
+  deliveryFee: number | null;
+  commissionAmount: number | null;
+  provider: AuthUser | null;
+  order: {
+    id: string;
+    quantity: number;
+    buyer?: { name: string } | null;
+    product?: { name: string; unit: string } | null;
+  } | null;
+  providerConfirmed: boolean;
+  buyerConfirmed: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function getDeliveries(): Promise<Delivery[]> {
+  const response = await fetch(`${BASE_URL}/api/deliveries`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Delivery[]>;
+}
+
+export async function acceptDelivery(
+  deliveryId: string,
+  providerId: string,
+  deliveryFee: number,
+  commissionAmount: number
+): Promise<Delivery> {
+  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/accept`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ providerId, deliveryFee, commissionAmount }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Delivery>;
+}
+
+export async function updateDeliveryStatus(deliveryId: string, status: string): Promise<Delivery> {
+  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Delivery>;
+}
+
+export async function cancelDelivery(deliveryId: string): Promise<Delivery> {
+  return updateDeliveryStatus(deliveryId, "DECLINED");
+}
+
+export async function confirmDeliveryByProvider(deliveryId: string): Promise<Delivery> {
+  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/confirm-provider`, {
+    method: "PATCH",
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Delivery>;
+}
+
+export async function confirmDeliveryByBuyer(deliveryId: string): Promise<Delivery> {
+  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/confirm-buyer`, {
+    method: "PATCH",
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Delivery>;
+}
+
 export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order> {
   const response = await fetch(`${BASE_URL}/api/orders/${orderId}/status`, {
     method: "PATCH",
@@ -161,6 +272,19 @@ export type AuthUser = {
   isActive: boolean;
   createdAt: string;
 };
+
+export async function updateProfilePhoto(userId: string, profilePhotoUrl: string): Promise<AuthUser> {
+  const response = await fetch(`${BASE_URL}/api/users/${userId}/photo`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profilePhotoUrl }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<AuthUser>;
+}
 
 export async function signup(data: {
   name: string;

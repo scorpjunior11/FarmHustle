@@ -41,8 +41,9 @@ const CropCard = ({
   <View style={styles.card}>
     <View style={styles.cardTop}>
       <Image
-        source={LOCAL_IMAGES[imageKey]}
+        source={item.imageUrl ? { uri: item.imageUrl } : LOCAL_IMAGES[imageKey]}
         style={styles.cropImage}
+        resizeMode="cover"
         accessibilityLabel={`Photo of ${item.name}`}
       />
 

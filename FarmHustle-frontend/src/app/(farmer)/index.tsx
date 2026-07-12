@@ -13,7 +13,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons, Entypo } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { createProduct, getProducts, Product } from '../../api/client';
+import { uploadImageToCloudinary } from '../../api/uploadImage';
 import { useAuth } from '../../context/AuthContext';
 
 // ─── Colors ───────────────────────────────────────────────────
@@ -41,8 +43,9 @@ function ListingCard({ product }: { product: Product }) {
   return (
     <View style={cardStyles.card}>
       <Image
-        source={require('../../../assets/images/icon.png')}
+        source={product.imageUrl ? { uri: product.imageUrl } : require('../../../assets/images/icon.png')}
         style={cardStyles.image}
+        resizeMode="cover"
         accessibilityLabel={`Photo of ${product.name}`}
       />
       <View style={cardStyles.details}>
@@ -114,7 +117,6 @@ export default function FarmerScreen() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
-  const [showAll, setShowAll] = useState(false);
 
   // ── Add Product modal state ────────────────────────────────
   const [showAddProduct, setShowAddProduct] = useState(false);
@@ -124,7 +126,10 @@ export default function FarmerScreen() {
   const [price, setPrice] = useState('');
   const [unit, setUnit] = useState<Unit | null>(null);
   const [description, setDescription] = useState('');
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
@@ -140,19 +145,48 @@ export default function FarmerScreen() {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
-  const visibleProducts = showAll ? products : products.slice(0, 2);
+  const handlePickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please allow photo library access to add a product photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.5,
+      base64: true,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      setImageUri(result.assets[0].uri);
+      setImageBase64(result.assets[0].base64 ?? null);
+    }
+  };
 
   const handleAddProduct = async () => {
     if (!user) { Alert.alert('Not logged in', 'Please log in to add a product.'); return; }
     if (!productName.trim()) { Alert.alert('Missing field', 'Please enter a product name.'); return; }
     if (!category) { Alert.alert('Missing field', 'Please select a category.'); return; }
-    if (!quantityAvailable.trim() || isNaN(Number(quantityAvailable))) { Alert.alert('Missing field', 'Please enter a valid quantity.'); return; }
+    if (
+      !quantityAvailable.trim() ||
+      isNaN(Number(quantityAvailable)) ||
+      Number(quantityAvailable) <= 0 ||
+      !Number.isInteger(Number(quantityAvailable))
+    ) { Alert.alert('Missing field', 'Please enter a valid whole number quantity greater than 0.'); return; }
     if (!price.trim() || isNaN(Number(price)) || Number(price) <= 0) { Alert.alert('Missing field', 'Please enter a valid price greater than 0.'); return; }
     if (!unit) { Alert.alert('Missing field', 'Please select a unit.'); return; }
 
     setSubmitting(true);
     setSubmitError(null);
     try {
+      let imageUrl: string | undefined;
+      if (imageBase64) {
+        setUploadingImage(true);
+        try {
+          imageUrl = await uploadImageToCloudinary(imageBase64);
+        } finally {
+          setUploadingImage(false);
+        }
+      }
       await createProduct({
         name: productName.trim(),
         category,
@@ -161,9 +195,12 @@ export default function FarmerScreen() {
         unit,
         farmerId: user.id,
         description: description.trim() || undefined,
+        imageUrl,
       });
       Alert.alert('Success', 'Product created successfully!');
       setProductName(''); setCategory(null); setQuantityAvailable(''); setPrice(''); setUnit(null); setDescription('');
+      setImageUri(null);
+      setImageBase64(null);
       setShowAddProduct(false);
       fetchProducts();
     } catch (err) {
@@ -194,9 +231,6 @@ export default function FarmerScreen() {
         {/* Listings */}
         <View style={s.listingsHeader}>
           <Text style={s.listingsTitle}>Your Listings</Text>
-          <TouchableOpacity onPress={() => setShowAll((v) => !v)} accessibilityRole="button">
-            <Text style={s.viewAll}>{showAll ? 'Show less' : 'View all'}</Text>
-          </TouchableOpacity>
         </View>
 
         {loadingProducts ? (
@@ -204,7 +238,7 @@ export default function FarmerScreen() {
         ) : products.length === 0 ? (
           <Text style={s.emptyText}>No listings yet. Tap Add Product to get started.</Text>
         ) : (
-          visibleProducts.map((item) => <ListingCard key={item.id} product={item} />)
+          products.map((item) => <ListingCard key={item.id} product={item} />)
         )}
 
         <View style={{ height: 20 }} />
@@ -240,6 +274,43 @@ export default function FarmerScreen() {
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+            <Text style={s.label}>Photo (optional)</Text>
+            {imageUri ? (
+              <View style={ap.photoPreviewWrap}>
+                <Image source={{ uri: imageUri }} style={ap.photoPreview} accessibilityLabel="Selected product photo" />
+                <View style={ap.photoActions}>
+                  <TouchableOpacity
+                    style={ap.photoActionBtn}
+                    onPress={handlePickImage}
+                    accessibilityLabel="Replace photo"
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="swap-horizontal-outline" size={16} color={C.primary} />
+                    <Text style={ap.photoActionText}>Replace</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={ap.photoActionBtn}
+                    onPress={() => { setImageUri(null); setImageBase64(null); }}
+                    accessibilityLabel="Remove photo"
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#D32F2F" />
+                    <Text style={[ap.photoActionText, { color: '#D32F2F' }]}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={ap.photoPicker}
+                onPress={handlePickImage}
+                accessibilityLabel="Add photo"
+                accessibilityRole="button"
+              >
+                <Ionicons name="camera-outline" size={28} color={C.primary} />
+                <Text style={ap.photoPickerText}>Add photo</Text>
+              </TouchableOpacity>
+            )}
+
             <Text style={s.label}>Product Name</Text>
             <TextInput
               style={s.input}
@@ -323,7 +394,12 @@ export default function FarmerScreen() {
               accessibilityRole="button"
             >
               {submitting ? (
-                <ActivityIndicator color={C.white} />
+                <>
+                  <ActivityIndicator color={C.white} />
+                  {uploadingImage ? (
+                    <Text style={s.createBtnText}>Uploading image...</Text>
+                  ) : null}
+                </>
               ) : (
                 <>
                   <Ionicons name="checkmark-circle-outline" size={20} color={C.white} />
@@ -368,7 +444,6 @@ const s = StyleSheet.create({
     alignItems: 'center', marginHorizontal: 16, marginTop: 20, marginBottom: 10,
   },
   listingsTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary },
-  viewAll: { fontSize: 13, color: C.primary, fontWeight: '600' },
   emptyText: { fontSize: 14, color: C.textMuted, textAlign: 'center', marginTop: 24, marginHorizontal: 32 },
 });
 
@@ -414,4 +489,26 @@ const ap = StyleSheet.create({
   chipText: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
   chipTextSelected: { color: C.primary, fontWeight: '700' },
   errorText: { color: '#D32F2F', fontSize: 13, marginTop: 8, marginBottom: 4 },
+  photoPicker: {
+    borderWidth: 1,
+    borderColor: C.border,
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: C.white,
+  },
+  photoPickerText: { fontSize: 13, fontWeight: '600', color: C.primary },
+  photoPreviewWrap: { gap: 8 },
+  photoPreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: 10,
+    backgroundColor: C.border,
+  },
+  photoActions: { flexDirection: 'row', gap: 16 },
+  photoActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
+  photoActionText: { fontSize: 13, fontWeight: '600', color: C.primary },
 });

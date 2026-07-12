@@ -52,7 +52,8 @@ public class DeliveryController {
     @PatchMapping("/{id}/accept")
     public ResponseEntity<?> accept(@PathVariable UUID id, @RequestBody AcceptRequest body) {
         try {
-            return ResponseEntity.ok(deliveryService.acceptDelivery(id, body.deliveryFee(), body.commissionAmount()));
+            return ResponseEntity.ok(deliveryService.acceptDelivery(
+                    id, body.providerId(), body.deliveryFee(), body.commissionAmount()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -85,6 +86,6 @@ public class DeliveryController {
         }
     }
 
-    private record AcceptRequest(Double deliveryFee, Double commissionAmount) {}
+    private record AcceptRequest(UUID providerId, Double deliveryFee, Double commissionAmount) {}
     private record StatusRequest(TransportStatus status) {}
 }

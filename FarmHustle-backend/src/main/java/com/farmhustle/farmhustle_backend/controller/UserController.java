@@ -54,4 +54,15 @@ public class UserController {
         userService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PatchMapping("/{id}/photo")
+    public ResponseEntity<?> updateProfilePhoto(@PathVariable UUID id, @RequestBody ProfilePhotoRequest body) {
+        try {
+            return ResponseEntity.ok(userService.updateProfilePhoto(id, body.profilePhotoUrl()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    private record ProfilePhotoRequest(String profilePhotoUrl) {}
 }
