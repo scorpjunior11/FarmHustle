@@ -4,6 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
+  RefreshControl,
   TextInput,
   TouchableOpacity,
   Image,
@@ -14,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons, Entypo } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { createProduct, getProducts, Product } from '../../api/client';
+import { createProduct, getProducts, deactivateProduct, Product } from '../../api/client';
 import { uploadImageToCloudinary } from '../../api/uploadImage';
 import { useAuth } from '../../context/AuthContext';
 
@@ -39,23 +41,34 @@ type Category = typeof CATEGORIES[number];
 type Unit = typeof UNITS[number];
 
 // ─── Listing Card ─────────────────────────────────────────────
-function ListingCard({ product }: { product: Product }) {
+function ListingCard({
+  product,
+  busy,
+  onRemove,
+}: {
+  product: Product;
+  busy: boolean;
+  onRemove: () => void;
+}) {
+  const inactive = !product.isActive;
   return (
-    <View style={cardStyles.card}>
+    <View style={[cardStyles.card, inactive && cardStyles.cardInactive]}>
       <Image
         source={product.imageUrl ? { uri: product.imageUrl } : require('../../../assets/images/icon.png')}
-        style={cardStyles.image}
+        style={[cardStyles.image, inactive && cardStyles.imageInactive]}
         resizeMode="cover"
         accessibilityLabel={`Photo of ${product.name}`}
       />
       <View style={cardStyles.details}>
         <View style={cardStyles.topRow}>
-          <Text style={cardStyles.cropName}>{product.name}</Text>
-          <View style={cardStyles.badge}>
-            <Text style={cardStyles.badgeText}>{product.isActive ? 'Active' : 'Inactive'}</Text>
+          <Text style={[cardStyles.cropName, inactive && cardStyles.textInactive]}>{product.name}</Text>
+          <View style={[cardStyles.badge, inactive && cardStyles.badgeInactive]}>
+            <Text style={[cardStyles.badgeText, inactive && cardStyles.badgeTextInactive]}>
+              {product.isActive ? 'Active' : 'Inactive'}
+            </Text>
           </View>
         </View>
-        <Text style={cardStyles.meta}>
+        <Text style={[cardStyles.meta, inactive && cardStyles.textInactive]}>
           {product.quantityAvailable} {product.unit}  ·  {product.category}
         </Text>
         <View style={cardStyles.locationRow}>
@@ -63,9 +76,22 @@ function ListingCard({ product }: { product: Product }) {
           <Text style={cardStyles.locationText}>{product.farmer.city}</Text>
         </View>
       </View>
-      <TouchableOpacity style={cardStyles.menu} accessibilityLabel={`Options for ${product.name}`} accessibilityRole="button">
-        <Entypo name="dots-three-vertical" size={16} color={C.textMuted} />
-      </TouchableOpacity>
+      {product.isActive ? (
+        busy ? (
+          <View style={cardStyles.menu}>
+            <ActivityIndicator size="small" color={C.textMuted} />
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={cardStyles.menu}
+            onPress={onRemove}
+            accessibilityLabel={`Remove ${product.name}`}
+            accessibilityRole="button"
+          >
+            <Entypo name="dots-three-vertical" size={16} color={C.textMuted} />
+          </TouchableOpacity>
+        )
+      ) : null}
     </View>
   );
 }
@@ -85,11 +111,21 @@ const cardStyles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  cardInactive: {
+    backgroundColor: '#F5F5F5',
+    opacity: 0.6,
+  },
   image: {
     width: 64,
     height: 64,
     borderRadius: 8,
     backgroundColor: C.border,
+  },
+  imageInactive: {
+    opacity: 0.6,
+  },
+  textInactive: {
+    color: C.textMuted,
   },
   details: { flex: 1, marginLeft: 12 },
   topRow: {
@@ -105,7 +141,11 @@ const cardStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 2,
   },
+  badgeInactive: {
+    backgroundColor: '#E0E0E0',
+  },
   badgeText: { fontSize: 11, fontWeight: '600', color: C.badgeText },
+  badgeTextInactive: { color: C.textMuted },
   meta: { fontSize: 13, color: C.textSecondary, marginTop: 3 },
   locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   locationText: { fontSize: 12, color: C.textMuted, marginLeft: 2 },
@@ -117,6 +157,8 @@ export default function FarmerScreen() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
 
   // ── Add Product modal state ────────────────────────────────
   const [showAddProduct, setShowAddProduct] = useState(false);
@@ -133,17 +175,55 @@ export default function FarmerScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
+    if (!user) {
+      setLoadingProducts(false);
+      return;
+    }
     try {
       const data = await getProducts();
-      setProducts(data);
+      setProducts(data.filter((p) => p.farmer.id === user.id));
     } catch {
       // silently fail — listings stay empty
     } finally {
       setLoadingProducts(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchProducts();
+  };
+
+  const handleRemove = (product: Product) => {
+    Alert.alert(
+      'Remove this listing?',
+      'Buyers will no longer see it.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setDeactivatingId(product.id);
+            try {
+              const updated = await deactivateProduct(product.id);
+              setProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
+            } catch (err) {
+              Alert.alert(
+                'Could not remove listing',
+                err instanceof Error ? err.message : 'Something went wrong.'
+              );
+            } finally {
+              setDeactivatingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -214,35 +294,60 @@ export default function FarmerScreen() {
     <SafeAreaView style={s.safeArea} edges={['top']}>
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity accessibilityLabel="Profile" accessibilityRole="button">
-          <Ionicons name="person-circle-outline" size={28} color={C.textPrimary} />
-        </TouchableOpacity>
         <View style={s.logoRow}>
           <Text style={s.logoText}>FarmHustle</Text>
           <Text style={s.logoLeaf}>🌿</Text>
         </View>
-        <TouchableOpacity accessibilityLabel="Notifications" accessibilityRole="button">
-          <Ionicons name="notifications-outline" size={26} color={C.textPrimary} />
-        </TouchableOpacity>
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-
-        {/* Listings */}
-        <View style={s.listingsHeader}>
-          <Text style={s.listingsTitle}>Your Listings</Text>
+      {loadingProducts ? (
+        <View style={s.loadingBlock}>
+          <ActivityIndicator color={C.primary} />
         </View>
-
-        {loadingProducts ? (
-          <ActivityIndicator color={C.primary} style={{ marginTop: 24 }} />
-        ) : products.length === 0 ? (
-          <Text style={s.emptyText}>No listings yet. Tap Add Product to get started.</Text>
-        ) : (
-          products.map((item) => <ListingCard key={item.id} product={item} />)
-        )}
-
-        <View style={{ height: 20 }} />
-      </ScrollView>
+      ) : (
+        <FlatList
+          style={s.scroll}
+          contentContainerStyle={s.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          data={products}
+          keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[C.primary]}
+              tintColor={C.primary}
+            />
+          }
+          ListHeaderComponent={
+            <View style={s.listingsHeader}>
+              <Text style={s.listingsTitle}>Your Listings</Text>
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={s.emptyState}>
+              <Ionicons name="leaf-outline" size={40} color="#C8E6C9" />
+              <Text style={s.emptyText}>No listings yet.</Text>
+              <TouchableOpacity
+                style={s.emptyCta}
+                onPress={() => setShowAddProduct(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add" size={16} color={C.white} />
+                <Text style={s.emptyCtaText}>Add Product</Text>
+              </TouchableOpacity>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <ListingCard
+              product={item}
+              busy={deactivatingId === item.id}
+              onRemove={() => handleRemove(item)}
+            />
+          )}
+        />
+      )}
 
       {/* FAB — opens the Add Product modal */}
       <TouchableOpacity
@@ -419,14 +524,15 @@ const s = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.white },
   header: {
     flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12,
+    justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 12,
     backgroundColor: C.white,
   },
   logoRow: { flexDirection: 'row', alignItems: 'center' },
   logoText: { fontSize: 20, fontWeight: '700', color: C.primary },
   logoLeaf: { fontSize: 18, marginLeft: 4 },
   scroll: { flex: 1, backgroundColor: C.bg },
-  scrollContent: { paddingBottom: 24 },
+  scrollContent: { paddingBottom: 24, flexGrow: 1 },
+  loadingBlock: { flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' },
   label: { fontSize: 13, fontWeight: '600', color: C.textPrimary, marginBottom: 6, marginTop: 10 },
   input: {
     borderWidth: 1, borderColor: C.border, borderRadius: 8,
@@ -444,7 +550,13 @@ const s = StyleSheet.create({
     alignItems: 'center', marginHorizontal: 16, marginTop: 20, marginBottom: 10,
   },
   listingsTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary },
-  emptyText: { fontSize: 14, color: C.textMuted, textAlign: 'center', marginTop: 24, marginHorizontal: 32 },
+  emptyState: { alignItems: 'center', paddingTop: 40, gap: 12, marginHorizontal: 32 },
+  emptyText: { fontSize: 14, color: C.textMuted, textAlign: 'center' },
+  emptyCta: {
+    backgroundColor: C.primary, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+  },
+  emptyCtaText: { color: C.white, fontSize: 14, fontWeight: '700' },
 });
 
 // ─── Add Product styles ───────────────────────────────────────

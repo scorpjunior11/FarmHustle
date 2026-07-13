@@ -174,7 +174,7 @@ export default function FarmerProfileScreen() {
 
         <TouchableOpacity
           style={styles.historyRow}
-          onPress={() => Alert.alert("Coming soon", "Sales history is on its way.")}
+          onPress={() => router.push("/sales-history")}
           activeOpacity={0.7}
         >
           <View style={styles.historyLeft}>

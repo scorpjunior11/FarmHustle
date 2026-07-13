@@ -42,6 +42,13 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    public Product deactivate(UUID id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found: " + id));
+        product.setIsActive(false);
+        return productRepository.save(product);
+    }
+
     public void delete(UUID id) {
         productRepository.deleteById(id);
     }

@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Alert,
   TouchableOpacity,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -200,6 +201,17 @@ function OrderCard({
         {order.buyer?.name ?? "Unknown buyer"} · {order.buyer?.city ?? ""}
       </Text>
 
+      {order.buyer?.phone ? (
+        <TouchableOpacity
+          style={styles.callRow}
+          onPress={() => Linking.openURL(`tel:${order.buyer!.phone}`)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="call-outline" size={14} color={THEME.accent} />
+          <Text style={styles.callText}>{order.buyer.phone}</Text>
+        </TouchableOpacity>
+      ) : null}
+
       <Text style={styles.metaText}>
         {order.quantity} {order.product?.unit ?? ""}
       </Text>
@@ -300,6 +312,8 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: "700" },
 
   buyerText: { fontSize: 13, color: "#616161", marginTop: 4 },
+  callRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+  callText: { fontSize: 13, color: THEME.accent, fontWeight: "600" },
   metaText: { fontSize: 13, color: "#757575", marginTop: 6 },
   priceText: { fontSize: 16, fontWeight: "700", color: THEME.accent, marginTop: 6 },
   earningsText: { fontSize: 12, color: "#757575", marginTop: 2 },

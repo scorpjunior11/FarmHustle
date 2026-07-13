@@ -176,7 +176,7 @@ export default function TransportProfileScreen() {
 
         <TouchableOpacity
           style={styles.historyRow}
-          onPress={() => Alert.alert("Coming soon", "Delivery history is on its way.")}
+          onPress={() => router.push("/delivery-history")}
           activeOpacity={0.7}
         >
           <View style={styles.historyLeft}>

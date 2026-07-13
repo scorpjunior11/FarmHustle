@@ -24,6 +24,11 @@ public class ProductController {
         return ResponseEntity.ok(productService.getAll());
     }
 
+    @GetMapping("/active")
+    public ResponseEntity<List<Product>> getActive() {
+        return ResponseEntity.ok(productService.getActive());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Product> getById(@PathVariable UUID id) {
         return productService.getById(id)
@@ -53,5 +58,14 @@ public class ProductController {
         }
         productService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/deactivate")
+    public ResponseEntity<?> deactivate(@PathVariable UUID id) {
+        try {
+            return ResponseEntity.ok(productService.deactivate(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

@@ -172,7 +172,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.historyRow}
-          onPress={() => Alert.alert("Coming soon", "Order history is on its way.")}
+          onPress={() => router.push("/order-history")}
           activeOpacity={0.7}
         >
           <View style={styles.historyLeft}>

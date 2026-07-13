@@ -245,8 +245,22 @@ export default function OrdersScreen() {
 
   const handleSubmitTransport = async () => {
     if (!transportOrder) return;
-    if (!pickupLocation.trim() || !deliveryLocation.trim()) {
+    const pickup = pickupLocation.trim();
+    const destination = deliveryLocation.trim();
+    if (!pickup || !destination) {
       setFormError("Please fill in both the pickup point and the destination.");
+      return;
+    }
+    if (pickup.length < 2 || destination.length < 2) {
+      setFormError("Pickup and destination must be at least 2 characters.");
+      return;
+    }
+    if (pickup.length > 60 || destination.length > 60) {
+      setFormError("Pickup and destination must be 60 characters or fewer.");
+      return;
+    }
+    if (pickup.toLowerCase() === destination.toLowerCase()) {
+      setFormError("Pickup and destination can't be the same.");
       return;
     }
     setSubmitting(true);
@@ -254,8 +268,8 @@ export default function OrdersScreen() {
     try {
       await requestDelivery({
         orderId: transportOrder.id,
-        pickupLocation: pickupLocation.trim(),
-        deliveryLocation: deliveryLocation.trim(),
+        pickupLocation: pickup,
+        deliveryLocation: destination,
       });
       setTransportOrder(null);
       Alert.alert(
@@ -312,6 +326,14 @@ export default function OrdersScreen() {
             <View style={styles.centered}>
               <Ionicons name="receipt-outline" size={40} color="#9E9E9E" />
               <Text style={styles.emptyText}>No orders yet.</Text>
+              <TouchableOpacity
+                style={styles.browseBtn}
+                onPress={() => router.navigate("/(buyer)")}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="leaf-outline" size={16} color={THEME.white} />
+                <Text style={styles.browseBtnText}>Browse crops</Text>
+              </TouchableOpacity>
             </View>
           }
           renderItem={({ item }) => {
@@ -683,6 +705,17 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   emptyText: { fontSize: 14, color: "#757575", textAlign: "center", paddingHorizontal: 32 },
+  browseBtn: {
+    marginTop: 8,
+    backgroundColor: THEME.accent,
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  browseBtnText: { fontSize: 14, fontWeight: "700", color: THEME.white },
 
   listContent: { padding: 16, flexGrow: 1 },
 

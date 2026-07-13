@@ -9,6 +9,7 @@ import {
   Alert,
   StatusBar,
   Image,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -192,7 +193,15 @@ export default function ProductDetail() {
           <View style={styles.farmerCard}>
             <FarmerRow icon="person-outline" value={product.farmer.name} />
             <FarmerRow icon="location-outline" value={product.farmer.city} />
-            <FarmerRow icon="call-outline" value={product.farmer.phone} />
+            <FarmerRow
+              icon="call-outline"
+              value={product.farmer.phone}
+              onPress={
+                product.farmer.phone
+                  ? () => Linking.openURL(`tel:${product.farmer.phone}`)
+                  : undefined
+              }
+            />
           </View>
         </View>
       </ScrollView>
@@ -222,15 +231,22 @@ export default function ProductDetail() {
 function FarmerRow({
   icon,
   value,
+  onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   value: string;
+  onPress?: () => void;
 }) {
   return (
-    <View style={styles.farmerRow}>
+    <TouchableOpacity
+      style={styles.farmerRow}
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+    >
       <Ionicons name={icon} size={16} color={THEME.accent} />
-      <Text style={styles.farmerValue}>{value}</Text>
-    </View>
+      <Text style={[styles.farmerValue, onPress && styles.farmerValueLink]}>{value}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -333,6 +349,7 @@ const styles = StyleSheet.create({
   },
   farmerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   farmerValue: { fontSize: 14, color: "#212121" },
+  farmerValueLink: { color: THEME.accent, fontWeight: "600" },
 
   bottomBar: {
     paddingHorizontal: 20,

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,11 +10,36 @@ import {
   StatusBar,
   Image,
   ImageSourcePropType,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { getProducts, Product } from "../../api/client";
+import { getActiveProducts, Product } from "../../api/client";
+
+const THEME = {
+  deepGreen: "#1B3A2B",
+  accent: "#2F7A4D",
+  white: "#FFFFFF",
+};
+
+// Same category values as Product["category"] in client.ts / the Add Product form's CATEGORIES.
+type CategoryItem = {
+  value: Product["category"] | null;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+};
+
+const CATEGORY_ITEMS: CategoryItem[] = [
+  { value: null, icon: "apps-outline", label: "All" },
+  { value: "GRAINS", icon: "nutrition-outline", label: "Grains" },
+  { value: "VEGETABLES", icon: "leaf-outline", label: "Vegetables" },
+  { value: "FRUITS", icon: "flower-outline", label: "Fruits" },
+  { value: "TUBERS", icon: "server-outline", label: "Tubers" },
+  { value: "OTHER", icon: "ellipsis-horizontal-circle-outline", label: "Other" },
+];
 
 // ─── Local Images (same files used by the farmer screen) ───────────────────────
 const LOCAL_IMAGES: Record<string, ImageSourcePropType> = {
@@ -88,17 +113,39 @@ export default function BuyerHome() {
   const [products, setProducts] = useState<Product[]>([]);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<Product["category"] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    getProducts().then(setProducts).catch(console.error);
+  const fetchProducts = useCallback(async () => {
+    try {
+      const data = await getActiveProducts();
+      setProducts(data);
+    } catch {
+      // silently fail — list stays as-is
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  const filtered = products.filter(
-    (p) =>
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchProducts();
+  };
+
+  const filtered = products.filter((p) => {
+    const matchesSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.farmer.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.farmer?.city ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+      (p.farmer?.city ?? "").toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = !selectedCategory || p.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   const toggleLike = (id: string) =>
     setLikedMap((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -113,17 +160,9 @@ export default function BuyerHome() {
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <TouchableOpacity>
-          <Ionicons name="person-circle-outline" size={28} color="#424242" />
-        </TouchableOpacity>
-
         <Text style={styles.logo}>
           FarmHustle <Text style={styles.logoLeaf}>🌿</Text>
         </Text>
-
-        <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={26} color="#424242" />
-        </TouchableOpacity>
       </View>
 
       {/* ── Page title ── */}
@@ -144,12 +183,49 @@ export default function BuyerHome() {
             onChangeText={setSearch}
           />
         </View>
-        <TouchableOpacity style={styles.filterBtn}>
-          <Ionicons name="filter-outline" size={20} color="#2E7D32" />
-        </TouchableOpacity>
+      </View>
+
+      {/* ── Category filter ── */}
+      <View style={styles.categoryCard}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryRow}
+        >
+          {CATEGORY_ITEMS.map((item) => {
+            const isSelected = selectedCategory === item.value;
+            return (
+              <TouchableOpacity
+                key={item.label}
+                style={[styles.categoryItem, isSelected && styles.categoryItemSelected]}
+                onPress={() => setSelectedCategory(item.value)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={item.icon}
+                  size={22}
+                  color={isSelected ? THEME.white : THEME.accent}
+                />
+                <Text
+                  style={[
+                    styles.categoryItemLabel,
+                    isSelected && styles.categoryItemLabelSelected,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* ── Crop List ── */}
+      {loading ? (
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color="#2E7D32" />
+        </View>
+      ) : (
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
@@ -164,13 +240,28 @@ export default function BuyerHome() {
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={["#2E7D32"]}
+            tintColor="#2E7D32"
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="leaf-outline" size={48} color="#C8E6C9" />
-            <Text style={styles.emptyText}>No crops match your search.</Text>
+            <Text style={styles.emptyText}>
+              {selectedCategory
+                ? `No crops in ${
+                    CATEGORY_ITEMS.find((c) => c.value === selectedCategory)?.label ?? "this category"
+                  } right now.`
+                : "No crops available yet."}
+            </Text>
           </View>
         }
       />
+      )}
     </SafeAreaView>
   );
 }
@@ -185,7 +276,7 @@ const styles = StyleSheet.create({
   // Header
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -245,12 +336,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#212121",
   },
-  filterBtn: {
-    backgroundColor: "#E8F5E9",
-    padding: 10,
-    borderRadius: 10,
+
+  // Category filter
+  categoryCard: {
+    backgroundColor: THEME.white,
+    borderRadius: 16,
+    marginHorizontal: 20,
+    marginBottom: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     borderWidth: 1,
-    borderColor: "#C8E6C9",
+    borderColor: "#F0F0F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  categoryRow: {
+    flexDirection: "row",
+    paddingHorizontal: 6,
+    gap: 10,
+  },
+  categoryItem: {
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 64,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    backgroundColor: "transparent",
+  },
+  categoryItemSelected: {
+    backgroundColor: THEME.accent,
+  },
+  categoryItemLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: THEME.deepGreen,
+    marginTop: 4,
+  },
+  categoryItemLabelSelected: {
+    color: THEME.white,
   },
 
   // List

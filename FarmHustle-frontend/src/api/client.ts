@@ -31,6 +31,26 @@ export async function getProducts(): Promise<Product[]> {
   return data;
 }
 
+export async function getActiveProducts(): Promise<Product[]> {
+  const response = await fetch(`${BASE_URL}/api/products/active`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Product[]>;
+}
+
+export async function deactivateProduct(productId: string): Promise<Product> {
+  const response = await fetch(`${BASE_URL}/api/products/${productId}/deactivate`, {
+    method: "PATCH",
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Product>;
+}
+
 export async function createProduct(data: {
   name: string;
   category: string;
@@ -172,7 +192,7 @@ export type Delivery = {
   order: {
     id: string;
     quantity: number;
-    buyer?: { name: string } | null;
+    buyer?: { name: string; phone?: string } | null;
     product?: { name: string; unit: string } | null;
   } | null;
   providerConfirmed: boolean;

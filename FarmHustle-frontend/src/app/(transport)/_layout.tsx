@@ -1,10 +1,41 @@
+import { useEffect, useRef, useState } from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { getDeliveries } from "../../api/client";
+import { useAuth } from "../../context/AuthContext";
 
 const ACTIVE_COLOR = "#1B3A2B";
 const INACTIVE_COLOR = "#9E9E9E";
+const POLL_INTERVAL_MS = 45000;
 
 export default function TransportLayout() {
+  const { user } = useAuth();
+  const [openJobsCount, setOpenJobsCount] = useState(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    if (!user) return;
+
+    const fetchOpenJobsCount = async () => {
+      try {
+        const deliveries = await getDeliveries();
+        if (mountedRef.current) {
+          setOpenJobsCount(deliveries.filter((d) => d.status === "REQUESTED").length);
+        }
+      } catch {
+        // silently ignore — badge just stays at its last known value
+      }
+    };
+
+    fetchOpenJobsCount();
+    const interval = setInterval(fetchOpenJobsCount, POLL_INTERVAL_MS);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(interval);
+    };
+  }, [user]);
+
   return (
     <Tabs
       screenOptions={{
@@ -18,6 +49,7 @@ export default function TransportLayout() {
         name="index"
         options={{
           title: "Available",
+          tabBarBadge: openJobsCount > 0 ? openJobsCount : undefined,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "list" : "list-outline"} size={24} color={color} />
           ),
