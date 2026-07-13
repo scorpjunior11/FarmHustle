@@ -23,7 +23,9 @@ public class DeliveryService {
     static {
         ALLOWED_TRANSITIONS = new EnumMap<>(TransportStatus.class);
         ALLOWED_TRANSITIONS.put(TransportStatus.REQUESTED,
-                Set.of(TransportStatus.ACCEPTED, TransportStatus.DECLINED));
+                Set.of(TransportStatus.FEE_PROPOSED, TransportStatus.DECLINED));
+        ALLOWED_TRANSITIONS.put(TransportStatus.FEE_PROPOSED,
+                Set.of(TransportStatus.ACCEPTED, TransportStatus.REQUESTED, TransportStatus.DECLINED));
         ALLOWED_TRANSITIONS.put(TransportStatus.ACCEPTED,
                 Set.of(TransportStatus.IN_TRANSIT));
         ALLOWED_TRANSITIONS.put(TransportStatus.IN_TRANSIT,
@@ -76,7 +78,35 @@ public class DeliveryService {
         delivery.setProvider(provider);
         delivery.setDeliveryFee(deliveryFee);
         delivery.setCommissionAmount(commissionAmount);
+        delivery.setStatus(TransportStatus.FEE_PROPOSED);
+        delivery.setUpdatedAt(LocalDateTime.now());
+        return deliveryRepository.save(delivery);
+    }
+
+    public Delivery acceptFee(UUID deliveryId) {
+        Delivery delivery = getDeliveryById(deliveryId);
+        if (delivery.getStatus() != TransportStatus.FEE_PROPOSED) {
+            throw new RuntimeException(
+                    "Fee can only be accepted from FEE_PROPOSED status, current status: "
+                            + delivery.getStatus());
+        }
         delivery.setStatus(TransportStatus.ACCEPTED);
+        delivery.setUpdatedAt(LocalDateTime.now());
+        return deliveryRepository.save(delivery);
+    }
+
+    public Delivery declineFee(UUID deliveryId) {
+        Delivery delivery = getDeliveryById(deliveryId);
+        if (delivery.getStatus() != TransportStatus.FEE_PROPOSED) {
+            throw new RuntimeException(
+                    "Fee can only be declined from FEE_PROPOSED status, current status: "
+                            + delivery.getStatus());
+        }
+        // Back to an open job: clear the proposal so another provider can take it.
+        delivery.setProvider(null);
+        delivery.setDeliveryFee(null);
+        delivery.setCommissionAmount(null);
+        delivery.setStatus(TransportStatus.REQUESTED);
         delivery.setUpdatedAt(LocalDateTime.now());
         return deliveryRepository.save(delivery);
     }

@@ -155,6 +155,7 @@ export async function requestDelivery(data: {
 
 export type DeliveryStatus =
   | "REQUESTED"
+  | "FEE_PROPOSED"
   | "ACCEPTED"
   | "IN_TRANSIT"
   | "DELIVERED"
@@ -223,6 +224,28 @@ export async function updateDeliveryStatus(deliveryId: string, status: string): 
 
 export async function cancelDelivery(deliveryId: string): Promise<Delivery> {
   return updateDeliveryStatus(deliveryId, "DECLINED");
+}
+
+export async function acceptDeliveryFee(deliveryId: string): Promise<Delivery> {
+  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/accept-fee`, {
+    method: "PATCH",
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Delivery>;
+}
+
+export async function declineDeliveryFee(deliveryId: string): Promise<Delivery> {
+  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/decline-fee`, {
+    method: "PATCH",
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Delivery>;
 }
 
 export async function confirmDeliveryByProvider(deliveryId: string): Promise<Delivery> {

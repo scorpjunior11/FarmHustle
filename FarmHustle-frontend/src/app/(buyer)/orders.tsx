@@ -21,6 +21,8 @@ import {
   getDeliveries,
   confirmDeliveryByBuyer,
   cancelDelivery,
+  acceptDeliveryFee,
+  declineDeliveryFee,
   initializePayment,
   initializeDeliveryPayment,
   Order,
@@ -58,6 +60,8 @@ export default function OrdersScreen() {
   const [cancelingDeliveryId, setCancelingDeliveryId] = useState<string | null>(null);
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
   const [payingDeliveryId, setPayingDeliveryId] = useState<string | null>(null);
+  const [acceptingFeeDeliveryId, setAcceptingFeeDeliveryId] = useState<string | null>(null);
+  const [decliningFeeDeliveryId, setDecliningFeeDeliveryId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) {
@@ -154,6 +158,45 @@ export default function OrdersScreen() {
     } finally {
       setPayingDeliveryId(null);
     }
+  };
+
+  const handleAcceptFee = async (delivery: Delivery) => {
+    setAcceptingFeeDeliveryId(delivery.id);
+    try {
+      const updated = await acceptDeliveryFee(delivery.id);
+      setDeliveries((prev) => prev.map((d) => (d.id === delivery.id ? updated : d)));
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "Something went wrong.";
+      Alert.alert("Could not accept fee", raw.replace(/^\d{3}:\s*/, ""));
+    } finally {
+      setAcceptingFeeDeliveryId(null);
+    }
+  };
+
+  const handleDeclineFee = (delivery: Delivery) => {
+    Alert.alert(
+      "Decline fee",
+      `Decline the proposed fee of GHS ${delivery.deliveryFee ?? 0}? The request will go back to finding a provider.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Decline",
+          style: "destructive",
+          onPress: async () => {
+            setDecliningFeeDeliveryId(delivery.id);
+            try {
+              const updated = await declineDeliveryFee(delivery.id);
+              setDeliveries((prev) => prev.map((d) => (d.id === delivery.id ? updated : d)));
+            } catch (err) {
+              const raw = err instanceof Error ? err.message : "Something went wrong.";
+              Alert.alert("Could not decline fee", raw.replace(/^\d{3}:\s*/, ""));
+            } finally {
+              setDecliningFeeDeliveryId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleCancelDelivery = (delivery: Delivery) => {
@@ -281,11 +324,15 @@ export default function OrdersScreen() {
                 canceling={delivery !== null && cancelingDeliveryId === delivery.id}
                 paying={payingOrderId === item.id}
                 payingFee={delivery !== null && payingDeliveryId === delivery.id}
+                acceptingFee={delivery !== null && acceptingFeeDeliveryId === delivery.id}
+                decliningFee={delivery !== null && decliningFeeDeliveryId === delivery.id}
                 onRequestTransport={() => openTransportModal(item)}
                 onConfirmReceived={() => delivery && handleConfirmReceived(delivery)}
                 onCancelDelivery={() => delivery && handleCancelDelivery(delivery)}
                 onPayNow={() => handlePayNow(item)}
                 onPayDeliveryFee={() => delivery && handlePayDeliveryFee(delivery)}
+                onAcceptFee={() => delivery && handleAcceptFee(delivery)}
+                onDeclineFee={() => delivery && handleDeclineFee(delivery)}
               />
             );
           }}
@@ -387,10 +434,11 @@ export default function OrdersScreen() {
 }
 
 const TRANSPORT_STATUS_META: Record<
-  "REQUESTED" | "ACCEPTED" | "IN_TRANSIT" | "DELIVERED",
+  "REQUESTED" | "FEE_PROPOSED" | "ACCEPTED" | "IN_TRANSIT" | "DELIVERED",
   { icon: keyof typeof Ionicons.glyphMap; color: string }
 > = {
   REQUESTED: { icon: "hourglass-outline", color: "#F57F17" },
+  FEE_PROPOSED: { icon: "pricetag-outline", color: "#6A1B9A" },
   ACCEPTED: { icon: "checkmark-circle-outline", color: "#2E7D32" },
   IN_TRANSIT: { icon: "car-outline", color: "#1565C0" },
   DELIVERED: { icon: "checkmark-done-outline", color: "#2E7D32" },
@@ -400,6 +448,8 @@ function transportStatusLabel(delivery: Delivery): string {
   switch (delivery.status) {
     case "REQUESTED":
       return "Transport requested — finding a provider";
+    case "FEE_PROPOSED":
+      return `Provider proposes GHS ${delivery.deliveryFee ?? 0}`;
     case "ACCEPTED":
       return `Provider assigned — GHS ${delivery.deliveryFee ?? 0}`;
     case "IN_TRANSIT":
@@ -418,11 +468,15 @@ function OrderCard({
   canceling,
   paying,
   payingFee,
+  acceptingFee,
+  decliningFee,
   onRequestTransport,
   onConfirmReceived,
   onCancelDelivery,
   onPayNow,
   onPayDeliveryFee,
+  onAcceptFee,
+  onDeclineFee,
 }: {
   order: Order;
   delivery: Delivery | null;
@@ -430,11 +484,15 @@ function OrderCard({
   canceling: boolean;
   paying: boolean;
   payingFee: boolean;
+  acceptingFee: boolean;
+  decliningFee: boolean;
   onRequestTransport: () => void;
   onConfirmReceived: () => void;
   onCancelDelivery: () => void;
   onPayNow: () => void;
   onPayDeliveryFee: () => void;
+  onAcceptFee: () => void;
+  onDeclineFee: () => void;
 }) {
   const meta = STATUS_META[order.status];
   const price = order.agreedPrice ?? order.initialPrice;
@@ -527,6 +585,41 @@ function OrderCard({
         <View style={styles.feePaidRow}>
           <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
           <Text style={styles.feePaidText}>Delivery fee paid</Text>
+        </View>
+      ) : null}
+
+      {delivery && delivery.status === "FEE_PROPOSED" ? (
+        <View style={styles.feeDecisionRow}>
+          <TouchableOpacity
+            style={[styles.declineFeeBtn, (acceptingFee || decliningFee) && styles.btnDisabled]}
+            onPress={onDeclineFee}
+            disabled={acceptingFee || decliningFee}
+            activeOpacity={0.85}
+          >
+            {decliningFee ? (
+              <ActivityIndicator color="#C62828" size="small" />
+            ) : (
+              <>
+                <Ionicons name="close-outline" size={16} color="#C62828" />
+                <Text style={styles.declineFeeBtnText}>Decline</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.acceptFeeBtn, (acceptingFee || decliningFee) && styles.btnDisabled]}
+            onPress={onAcceptFee}
+            disabled={acceptingFee || decliningFee}
+            activeOpacity={0.85}
+          >
+            {acceptingFee ? (
+              <ActivityIndicator color={THEME.white} size="small" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-outline" size={16} color={THEME.white} />
+                <Text style={styles.requestBtnText}>Accept fee</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       ) : null}
 
@@ -643,6 +736,31 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   feePaidText: { fontSize: 13, fontWeight: "600", color: "#2E7D32" },
+
+  feeDecisionRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  acceptFeeBtn: {
+    flex: 1,
+    backgroundColor: THEME.accent,
+    borderRadius: 10,
+    paddingVertical: 10,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  declineFeeBtn: {
+    flex: 1,
+    backgroundColor: THEME.white,
+    borderWidth: 1,
+    borderColor: "#E57373",
+    borderRadius: 10,
+    paddingVertical: 10,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  declineFeeBtnText: { fontSize: 13, fontWeight: "700", color: "#C62828" },
 
   waitingRow: {
     marginTop: 12,

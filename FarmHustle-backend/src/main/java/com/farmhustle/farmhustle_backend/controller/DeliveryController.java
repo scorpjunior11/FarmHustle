@@ -59,6 +59,24 @@ public class DeliveryController {
         }
     }
 
+    @PatchMapping("/{id}/accept-fee")
+    public ResponseEntity<?> acceptFee(@PathVariable UUID id) {
+        try {
+            return ResponseEntity.ok(deliveryService.acceptFee(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PatchMapping("/{id}/decline-fee")
+    public ResponseEntity<?> declineFee(@PathVariable UUID id) {
+        try {
+            return ResponseEntity.ok(deliveryService.declineFee(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @PatchMapping("/{id}/status")
     public ResponseEntity<?> updateStatus(@PathVariable UUID id, @RequestBody StatusRequest body) {
         try {

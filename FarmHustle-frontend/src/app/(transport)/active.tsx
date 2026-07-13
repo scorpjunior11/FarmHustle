@@ -28,6 +28,7 @@ const THEME = {
 };
 
 const STATUS_META: Partial<Record<DeliveryStatus, { label: string; bg: string; fg: string }>> = {
+  FEE_PROPOSED: { label: "Awaiting buyer", bg: "#F3E5F5", fg: "#6A1B9A" },
   ACCEPTED: { label: "Accepted", bg: "#FFF8E1", fg: "#F57F17" },
   IN_TRANSIT: { label: "In transit", bg: "#E3F2FD", fg: "#1565C0" },
 };
@@ -97,7 +98,7 @@ export default function ActiveDeliveriesScreen() {
   const activeJobs = deliveries.filter(
     (d) =>
       d.provider?.id === user?.id &&
-      (d.status === "ACCEPTED" || d.status === "IN_TRANSIT")
+      (d.status === "FEE_PROPOSED" || d.status === "ACCEPTED" || d.status === "IN_TRANSIT")
   );
 
   if (!user) {
@@ -202,7 +203,12 @@ function DeliveryCard({
 
       <Text style={styles.feeText}>GHS {delivery.deliveryFee ?? "0"}</Text>
 
-      {delivery.status === "ACCEPTED" ? (
+      {delivery.status === "FEE_PROPOSED" ? (
+        <View style={styles.waitingRow}>
+          <Ionicons name="time-outline" size={16} color="#757575" />
+          <Text style={styles.waitingText}>Waiting for buyer to accept fee</Text>
+        </View>
+      ) : delivery.status === "ACCEPTED" ? (
         <TouchableOpacity
           style={[styles.actionBtn, busy && styles.btnDisabled]}
           onPress={onStart}
