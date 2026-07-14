@@ -1,5 +1,24 @@
 const BASE_URL = "http://192.168.2.95:8080";
 
+// ─── Auth token attachment ─────────────────────────────────
+// Module-level so every call in this file can see the latest token without
+// threading it through every function signature. Set on startup load and on
+// login/signup/logout via AuthContext.
+
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
+function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = { ...(options.headers as Record<string, string> | undefined) };
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  return fetch(url, { ...options, headers });
+}
+
 export type Product = {
   id: string;
   name: string;
@@ -26,13 +45,13 @@ export type Product = {
 };
 
 export async function getProducts(): Promise<Product[]> {
-  const response = await fetch(`${BASE_URL}/api/products`);
+  const response = await authFetch(`${BASE_URL}/api/products`);
   const data = await response.json();
   return data;
 }
 
 export async function getActiveProducts(): Promise<Product[]> {
-  const response = await fetch(`${BASE_URL}/api/products/active`);
+  const response = await authFetch(`${BASE_URL}/api/products/active`);
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`${response.status}: ${errorText}`);
@@ -41,7 +60,7 @@ export async function getActiveProducts(): Promise<Product[]> {
 }
 
 export async function deactivateProduct(productId: string): Promise<Product> {
-  const response = await fetch(`${BASE_URL}/api/products/${productId}/deactivate`, {
+  const response = await authFetch(`${BASE_URL}/api/products/${productId}/deactivate`, {
     method: "PATCH",
   });
   if (!response.ok) {
@@ -52,7 +71,7 @@ export async function deactivateProduct(productId: string): Promise<Product> {
 }
 
 export async function reactivateProduct(productId: string): Promise<Product> {
-  const response = await fetch(`${BASE_URL}/api/products/${productId}/reactivate`, {
+  const response = await authFetch(`${BASE_URL}/api/products/${productId}/reactivate`, {
     method: "PATCH",
   });
   if (!response.ok) {
@@ -63,7 +82,7 @@ export async function reactivateProduct(productId: string): Promise<Product> {
 }
 
 export async function deleteProduct(productId: string): Promise<void> {
-  const response = await fetch(`${BASE_URL}/api/products/${productId}`, {
+  const response = await authFetch(`${BASE_URL}/api/products/${productId}`, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -82,7 +101,7 @@ export async function createProduct(data: {
   description?: string;
   imageUrl?: string;
 }): Promise<Product> {
-  const response = await fetch(`${BASE_URL}/api/products`, {
+  const response = await authFetch(`${BASE_URL}/api/products`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -110,7 +129,7 @@ export async function createOrder(data: {
   quantity: number;
   initialPrice: number;
 }): Promise<unknown> {
-  const response = await fetch(`${BASE_URL}/api/orders`, {
+  const response = await authFetch(`${BASE_URL}/api/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -156,7 +175,7 @@ export type Order = {
 };
 
 export async function getOrdersByBuyer(buyerId: string): Promise<Order[]> {
-  const response = await fetch(`${BASE_URL}/api/orders/buyer/${buyerId}`);
+  const response = await authFetch(`${BASE_URL}/api/orders/buyer/${buyerId}`);
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`${response.status}: ${errorText}`);
@@ -165,7 +184,7 @@ export async function getOrdersByBuyer(buyerId: string): Promise<Order[]> {
 }
 
 export async function getOrdersByFarmer(farmerId: string): Promise<Order[]> {
-  const response = await fetch(`${BASE_URL}/api/orders/farmer/${farmerId}`);
+  const response = await authFetch(`${BASE_URL}/api/orders/farmer/${farmerId}`);
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`${response.status}: ${errorText}`);
@@ -178,7 +197,7 @@ export async function requestDelivery(data: {
   pickupLocation: string;
   deliveryLocation: string;
 }): Promise<unknown> {
-  const response = await fetch(`${BASE_URL}/api/deliveries`, {
+  const response = await authFetch(`${BASE_URL}/api/deliveries`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -224,7 +243,7 @@ export type Delivery = {
 };
 
 export async function getDeliveries(): Promise<Delivery[]> {
-  const response = await fetch(`${BASE_URL}/api/deliveries`);
+  const response = await authFetch(`${BASE_URL}/api/deliveries`);
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`${response.status}: ${errorText}`);
@@ -238,7 +257,7 @@ export async function acceptDelivery(
   deliveryFee: number,
   commissionAmount: number
 ): Promise<Delivery> {
-  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/accept`, {
+  const response = await authFetch(`${BASE_URL}/api/deliveries/${deliveryId}/accept`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ providerId, deliveryFee, commissionAmount }),
@@ -251,7 +270,7 @@ export async function acceptDelivery(
 }
 
 export async function updateDeliveryStatus(deliveryId: string, status: string): Promise<Delivery> {
-  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/status`, {
+  const response = await authFetch(`${BASE_URL}/api/deliveries/${deliveryId}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
@@ -268,7 +287,7 @@ export async function cancelDelivery(deliveryId: string): Promise<Delivery> {
 }
 
 export async function acceptDeliveryFee(deliveryId: string): Promise<Delivery> {
-  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/accept-fee`, {
+  const response = await authFetch(`${BASE_URL}/api/deliveries/${deliveryId}/accept-fee`, {
     method: "PATCH",
   });
   if (!response.ok) {
@@ -279,7 +298,7 @@ export async function acceptDeliveryFee(deliveryId: string): Promise<Delivery> {
 }
 
 export async function declineDeliveryFee(deliveryId: string): Promise<Delivery> {
-  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/decline-fee`, {
+  const response = await authFetch(`${BASE_URL}/api/deliveries/${deliveryId}/decline-fee`, {
     method: "PATCH",
   });
   if (!response.ok) {
@@ -290,7 +309,7 @@ export async function declineDeliveryFee(deliveryId: string): Promise<Delivery> 
 }
 
 export async function confirmDeliveryByProvider(deliveryId: string): Promise<Delivery> {
-  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/confirm-provider`, {
+  const response = await authFetch(`${BASE_URL}/api/deliveries/${deliveryId}/confirm-provider`, {
     method: "PATCH",
   });
   if (!response.ok) {
@@ -301,7 +320,7 @@ export async function confirmDeliveryByProvider(deliveryId: string): Promise<Del
 }
 
 export async function confirmDeliveryByBuyer(deliveryId: string): Promise<Delivery> {
-  const response = await fetch(`${BASE_URL}/api/deliveries/${deliveryId}/confirm-buyer`, {
+  const response = await authFetch(`${BASE_URL}/api/deliveries/${deliveryId}/confirm-buyer`, {
     method: "PATCH",
   });
   if (!response.ok) {
@@ -312,7 +331,7 @@ export async function confirmDeliveryByBuyer(deliveryId: string): Promise<Delive
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order> {
-  const response = await fetch(`${BASE_URL}/api/orders/${orderId}/status`, {
+  const response = await authFetch(`${BASE_URL}/api/orders/${orderId}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
@@ -329,7 +348,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
 export async function initializePayment(
   orderId: string
 ): Promise<{ authorizationUrl: string; reference: string }> {
-  const response = await fetch(`${BASE_URL}/api/payments/initialize`, {
+  const response = await authFetch(`${BASE_URL}/api/payments/initialize`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ orderId }),
@@ -344,7 +363,7 @@ export async function initializePayment(
 export async function verifyPayment(
   reference: string
 ): Promise<{ status: string; order: Order | null }> {
-  const response = await fetch(`${BASE_URL}/api/payments/verify/${reference}`);
+  const response = await authFetch(`${BASE_URL}/api/payments/verify/${reference}`);
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`${response.status}: ${errorText}`);
@@ -355,7 +374,7 @@ export async function verifyPayment(
 export async function initializeDeliveryPayment(
   deliveryId: string
 ): Promise<{ authorizationUrl: string; reference: string }> {
-  const response = await fetch(`${BASE_URL}/api/payments/delivery/initialize`, {
+  const response = await authFetch(`${BASE_URL}/api/payments/delivery/initialize`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ deliveryId }),
@@ -370,7 +389,7 @@ export async function initializeDeliveryPayment(
 export async function verifyDeliveryPayment(
   reference: string
 ): Promise<{ status: string; delivery: Delivery | null }> {
-  const response = await fetch(`${BASE_URL}/api/payments/delivery/verify/${reference}`);
+  const response = await authFetch(`${BASE_URL}/api/payments/delivery/verify/${reference}`);
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`${response.status}: ${errorText}`);
@@ -393,7 +412,7 @@ export type AuthUser = {
 };
 
 export async function updateProfilePhoto(userId: string, profilePhotoUrl: string): Promise<AuthUser> {
-  const response = await fetch(`${BASE_URL}/api/users/${userId}/photo`, {
+  const response = await authFetch(`${BASE_URL}/api/users/${userId}/photo`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ profilePhotoUrl }),
@@ -405,6 +424,8 @@ export async function updateProfilePhoto(userId: string, profilePhotoUrl: string
   return response.json() as Promise<AuthUser>;
 }
 
+export type AuthResponse = { token: string; user: AuthUser };
+
 export async function signup(data: {
   name: string;
   email: string;
@@ -412,8 +433,8 @@ export async function signup(data: {
   password: string;
   role: string;
   city: string;
-}): Promise<AuthUser> {
-  const response = await fetch(`${BASE_URL}/api/auth/signup`, {
+}): Promise<AuthResponse> {
+  const response = await authFetch(`${BASE_URL}/api/auth/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -424,11 +445,11 @@ export async function signup(data: {
     throw new Error(message || "Signup failed");
   }
 
-  return response.json() as Promise<AuthUser>;
+  return response.json() as Promise<AuthResponse>;
 }
 
-export async function login(data: { email: string; password: string }): Promise<AuthUser> {
-  const response = await fetch(`${BASE_URL}/api/auth/login`, {
+export async function login(data: { email: string; password: string }): Promise<AuthResponse> {
+  const response = await authFetch(`${BASE_URL}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -439,5 +460,5 @@ export async function login(data: { email: string; password: string }): Promise<
     throw new Error(message || "Login failed");
   }
 
-  return response.json() as Promise<AuthUser>;
+  return response.json() as Promise<AuthResponse>;
 }

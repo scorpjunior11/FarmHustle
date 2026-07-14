@@ -1,6 +1,9 @@
 package com.farmhustle.farmhustle_backend.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -13,20 +16,27 @@ public class Product {
     @Column(updatable = false, nullable = false)
     private UUID id;
 
+    @NotBlank
     @Column(nullable = false)
     private String name;
 
+    @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Category category;
 
+    @NotNull
+    @Positive
     @Column(nullable = false)
     private Double quantityAvailable;
 
+    @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Unit unit;
 
+    @NotNull
+    @Positive
     @Column(nullable = false)
     private Double price;
 

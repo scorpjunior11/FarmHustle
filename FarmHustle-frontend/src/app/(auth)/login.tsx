@@ -36,8 +36,8 @@ export default function LoginScreen() {
     setError("");
     setLoading(true);
     try {
-      const user = await login({ email: email.trim(), password });
-      setUser(user);
+      const { token, user } = await login({ email: email.trim(), password });
+      setUser(user, token);
       switch (user.role) {
         case "FARMER":
           router.replace("/(farmer)");

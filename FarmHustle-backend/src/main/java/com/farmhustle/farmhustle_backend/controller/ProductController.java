@@ -2,6 +2,7 @@ package com.farmhustle.farmhustle_backend.controller;
 
 import com.farmhustle.farmhustle_backend.entity.Product;
 import com.farmhustle.farmhustle_backend.service.ProductService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -37,12 +38,12 @@ public class ProductController {
     }
 
     @PostMapping
-    public ResponseEntity<Product> create(@RequestBody Product product) {
+    public ResponseEntity<Product> create(@Valid @RequestBody Product product) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.create(product));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Product> update(@PathVariable UUID id, @RequestBody Product product) {
+    public ResponseEntity<Product> update(@PathVariable UUID id, @Valid @RequestBody Product product) {
         return productService.getById(id)
                 .map(existing -> {
                     product.setId(id);

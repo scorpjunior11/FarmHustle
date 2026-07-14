@@ -2,6 +2,10 @@ package com.farmhustle.farmhustle_backend.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -14,12 +18,17 @@ public class User {
     @Column(updatable = false, nullable = false)
     private UUID id;
 
+    @NotBlank
     @Column(nullable = false)
     private String name;
 
+    @NotBlank
+    @Email
     @Column(nullable = false, unique = true)
     private String email;
 
+    @NotBlank
+    @Pattern(regexp = "^0\\d{9}$", message = "phone must be a valid Ghana number, e.g. 0241234567")
     @Column(nullable = false, unique = true)
     private String phone;
 
@@ -27,10 +36,12 @@ public class User {
     @Column(nullable = false)
     private String passwordHash;
 
+    @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
 
+    @NotBlank
     @Column(nullable = false)
     private String city;
 

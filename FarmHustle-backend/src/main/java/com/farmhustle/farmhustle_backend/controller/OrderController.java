@@ -3,6 +3,7 @@ package com.farmhustle.farmhustle_backend.controller;
 import com.farmhustle.farmhustle_backend.entity.Order;
 import com.farmhustle.farmhustle_backend.entity.OrderStatus;
 import com.farmhustle.farmhustle_backend.service.OrderService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +22,7 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<Order> create(@RequestBody Order order) {
+    public ResponseEntity<Order> create(@Valid @RequestBody Order order) {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createOrder(order));
     }
 

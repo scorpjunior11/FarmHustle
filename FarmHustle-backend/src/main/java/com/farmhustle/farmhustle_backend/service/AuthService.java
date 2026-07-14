@@ -19,7 +19,10 @@ public class AuthService {
 
     public User signup(String name, String email, String phone, String rawPassword, Role role, String city) {
         if (userRepository.findByEmail(email).isPresent()) {
-            throw new RuntimeException("Email already registered");
+            throw new RuntimeException("An account with this email already exists.");
+        }
+        if (userRepository.findByPhone(phone).isPresent()) {
+            throw new RuntimeException("An account with this phone number already exists.");
         }
         User user = new User();
         user.setName(name);

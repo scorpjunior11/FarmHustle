@@ -3,6 +3,7 @@ package com.farmhustle.farmhustle_backend.controller;
 import com.farmhustle.farmhustle_backend.entity.Delivery;
 import com.farmhustle.farmhustle_backend.entity.TransportStatus;
 import com.farmhustle.farmhustle_backend.service.DeliveryService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +22,7 @@ public class DeliveryController {
     }
 
     @PostMapping
-    public ResponseEntity<Delivery> create(@RequestBody Delivery delivery) {
+    public ResponseEntity<Delivery> create(@Valid @RequestBody Delivery delivery) {
         return ResponseEntity.status(HttpStatus.CREATED).body(deliveryService.requestDelivery(delivery));
     }
 

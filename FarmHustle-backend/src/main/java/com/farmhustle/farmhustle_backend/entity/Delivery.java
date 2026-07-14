@@ -1,6 +1,7 @@
 package com.farmhustle.farmhustle_backend.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -27,9 +28,11 @@ public class Delivery {
     @Column
     private Double commissionAmount;
 
+    @NotBlank
     @Column
     private String pickupLocation;
 
+    @NotBlank
     @Column
     private String deliveryLocation;
 

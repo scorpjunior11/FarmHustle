@@ -1,6 +1,8 @@
 package com.farmhustle.farmhustle_backend.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -13,18 +15,23 @@ public class Order {
     @Column(updatable = false, nullable = false)
     private UUID id;
 
+    @NotNull
     @ManyToOne(optional = false)
     @JoinColumn(name = "buyer_id", nullable = false)
     private User buyer;
 
+    @NotNull
     @ManyToOne(optional = false)
     @JoinColumn(name = "farmer_id", nullable = false)
     private User farmer;
 
+    @NotNull
     @ManyToOne(optional = false)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @NotNull
+    @Positive
     @Column(nullable = false)
     private Double quantity;
 
