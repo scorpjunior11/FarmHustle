@@ -14,25 +14,25 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialIcons, Entypo } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { createProduct, getProducts, deactivateProduct, Product } from '../../api/client';
+import { createProduct, getProducts, deactivateProduct, reactivateProduct, deleteProduct, Product } from '../../api/client';
 import { uploadImageToCloudinary } from '../../api/uploadImage';
 import { useAuth } from '../../context/AuthContext';
+import { THEME } from '../../theme/theme';
 
-// ─── Colors ───────────────────────────────────────────────────
-const C = {
-  primary: '#2E7D32',
-  primaryLight: '#4CAF50',
-  white: '#FFFFFF',
-  bg: '#F5F5F5',
-  textPrimary: '#1A1A1A',
-  textSecondary: '#6B6B6B',
-  textMuted: '#9E9E9E',
-  border: '#E0E0E0',
-  badgeBg: '#E8F5E9',
-  badgeText: '#2E7D32',
-};
+const { colors } = THEME;
+const HAIRLINE = '#EEEEEE';
+const PLACEHOLDER_BG = '#F2F4F2';
+const INPUT_BG = '#F5F6F5';
+
+const cardShadow = {
+  shadowColor: '#000000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 6,
+  elevation: 2,
+} as const;
 
 // ─── Add Product form options ─────────────────────────────────
 const CATEGORIES = ['GRAINS', 'VEGETABLES', 'FRUITS', 'TUBERS', 'OTHER'] as const;
@@ -40,116 +40,222 @@ const UNITS = ['KG', 'BAG', 'CRATE', 'BUNCH'] as const;
 type Category = typeof CATEGORIES[number];
 type Unit = typeof UNITS[number];
 
+const categoryLabel = (value: string) => value.charAt(0) + value.slice(1).toLowerCase();
+
 // ─── Listing Card ─────────────────────────────────────────────
 function ListingCard({
   product,
   busy,
   onRemove,
+  onReactivate,
+  onDelete,
 }: {
   product: Product;
   busy: boolean;
   onRemove: () => void;
+  onReactivate: () => void;
+  onDelete: () => void;
 }) {
   const inactive = !product.isActive;
   return (
     <View style={[cardStyles.card, inactive && cardStyles.cardInactive]}>
-      <Image
-        source={product.imageUrl ? { uri: product.imageUrl } : require('../../../assets/images/icon.png')}
-        style={[cardStyles.image, inactive && cardStyles.imageInactive]}
-        resizeMode="cover"
-        accessibilityLabel={`Photo of ${product.name}`}
-      />
-      <View style={cardStyles.details}>
+      {/* Image */}
+      <View style={cardStyles.imageWrap}>
+        {product.imageUrl ? (
+          <Image
+            source={{ uri: product.imageUrl }}
+            style={cardStyles.image}
+            resizeMode="cover"
+            accessibilityLabel={`Photo of ${product.name}`}
+          />
+        ) : (
+          <View style={[cardStyles.image, cardStyles.imagePlaceholder]}>
+            <Ionicons name="leaf-outline" size={34} color="#C4CDC6" />
+          </View>
+        )}
+
+        {inactive ? <View style={cardStyles.inactiveOverlay} /> : null}
+
+        {/* Gold category tag */}
+        <View style={cardStyles.categoryTag}>
+          <Text style={cardStyles.categoryTagText}>{categoryLabel(product.category)}</Text>
+        </View>
+
+        {/* Remove action (active listings only) */}
+        {product.isActive ? (
+          busy ? (
+            <View style={cardStyles.removeBtn}>
+              <ActivityIndicator size="small" color={colors.danger} />
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={cardStyles.removeBtn}
+              onPress={onRemove}
+              accessibilityLabel={`Remove ${product.name}`}
+              accessibilityRole="button"
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.danger} />
+            </TouchableOpacity>
+          )
+        ) : null}
+      </View>
+
+      {/* Body */}
+      <View style={cardStyles.body}>
         <View style={cardStyles.topRow}>
-          <Text style={[cardStyles.cropName, inactive && cardStyles.textInactive]}>{product.name}</Text>
-          <View style={[cardStyles.badge, inactive && cardStyles.badgeInactive]}>
-            <Text style={[cardStyles.badgeText, inactive && cardStyles.badgeTextInactive]}>
+          <Text style={[cardStyles.cropName, inactive && cardStyles.textInactive]} numberOfLines={1}>
+            {product.name}
+          </Text>
+          <View style={[cardStyles.statusPill, inactive ? cardStyles.statusPillInactive : cardStyles.statusPillActive]}>
+            <Text style={[cardStyles.statusText, inactive ? cardStyles.statusTextInactive : cardStyles.statusTextActive]}>
               {product.isActive ? 'Active' : 'Inactive'}
             </Text>
           </View>
         </View>
-        <Text style={[cardStyles.meta, inactive && cardStyles.textInactive]}>
-          {product.quantityAvailable} {product.unit}  ·  {product.category}
-        </Text>
-        <View style={cardStyles.locationRow}>
-          <MaterialIcons name="location-pin" size={13} color={C.textMuted} />
-          <Text style={cardStyles.locationText}>{product.farmer.city}</Text>
+
+        <View style={cardStyles.metaRow}>
+          <Ionicons name="cube-outline" size={13} color={colors.textMuted} />
+          <Text style={cardStyles.metaText}>
+            {product.quantityAvailable} {product.unit} available
+          </Text>
         </View>
-      </View>
-      {product.isActive ? (
-        busy ? (
-          <View style={cardStyles.menu}>
-            <ActivityIndicator size="small" color={C.textMuted} />
+
+        <View style={cardStyles.priceBlock}>
+          <Text style={[cardStyles.priceText, inactive && cardStyles.textInactive]}>GHS {product.price}</Text>
+          <Text style={cardStyles.priceUnit}> / {product.unit}</Text>
+        </View>
+
+        {/* Inactive listings: reactivate or permanently delete */}
+        {inactive ? (
+          <View style={cardStyles.inactiveActions}>
+            <TouchableOpacity
+              style={[cardStyles.reactivateBtn, busy && cardStyles.actionDisabled]}
+              onPress={onReactivate}
+              disabled={busy}
+              activeOpacity={0.85}
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <Ionicons name="refresh-outline" size={15} color={colors.primary} />
+                  <Text style={cardStyles.reactivateText}>Reactivate</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[cardStyles.deleteBtn, busy && cardStyles.actionDisabled]}
+              onPress={onDelete}
+              disabled={busy}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="trash-outline" size={15} color={colors.danger} />
+              <Text style={cardStyles.deleteText}>Delete</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          <TouchableOpacity
-            style={cardStyles.menu}
-            onPress={onRemove}
-            accessibilityLabel={`Remove ${product.name}`}
-            accessibilityRole="button"
-          >
-            <Entypo name="dots-three-vertical" size={16} color={C.textMuted} />
-          </TouchableOpacity>
-        )
-      ) : null}
+        ) : null}
+      </View>
     </View>
   );
 }
 
 const cardStyles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.white,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
     marginHorizontal: 16,
-    marginBottom: 10,
-    borderRadius: 12,
-    padding: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    marginBottom: 14,
+    ...cardShadow,
   },
-  cardInactive: {
-    backgroundColor: '#F5F5F5',
-    opacity: 0.6,
-  },
+  cardInactive: { opacity: 0.85 },
+  imageWrap: { position: 'relative' },
   image: {
-    width: 64,
-    height: 64,
+    width: '100%',
+    height: 150,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+  },
+  imagePlaceholder: { backgroundColor: PLACEHOLDER_BG, justifyContent: 'center', alignItems: 'center' },
+  inactiveOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    backgroundColor: 'rgba(245,246,245,0.55)',
+  },
+  categoryTag: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: colors.accent,
     borderRadius: 8,
-    backgroundColor: C.border,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
   },
-  imageInactive: {
-    opacity: 0.6,
+  categoryTagText: { fontSize: 10, fontWeight: '800', color: colors.accentText, letterSpacing: 0.3 },
+  removeBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  textInactive: {
-    color: C.textMuted,
-  },
-  details: { flex: 1, marginLeft: 12 },
-  topRow: {
+
+  body: { padding: 14 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  cropName: { flex: 1, fontSize: 16, fontWeight: '800', color: colors.text },
+  textInactive: { color: colors.textMuted },
+  statusPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
+  statusPillActive: { backgroundColor: '#E8F5E9' },
+  statusPillInactive: { backgroundColor: '#EDEDED' },
+  statusText: { fontSize: 11, fontWeight: '700' },
+  statusTextActive: { color: colors.primary },
+  statusTextInactive: { color: colors.textMuted },
+
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
+  metaText: { fontSize: 12.5, color: colors.textMuted },
+
+  priceBlock: { flexDirection: 'row', alignItems: 'baseline', marginTop: 8 },
+  priceText: { fontSize: 17, fontWeight: '800', color: colors.primary },
+  priceUnit: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
+
+  inactiveActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  reactivateBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginRight: 8,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
   },
-  cropName: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
-  badge: {
-    backgroundColor: C.badgeBg,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
+  reactivateText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  deleteBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E57373',
+    backgroundColor: colors.white,
   },
-  badgeInactive: {
-    backgroundColor: '#E0E0E0',
-  },
-  badgeText: { fontSize: 11, fontWeight: '600', color: C.badgeText },
-  badgeTextInactive: { color: C.textMuted },
-  meta: { fontSize: 13, color: C.textSecondary, marginTop: 3 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  locationText: { fontSize: 12, color: C.textMuted, marginLeft: 2 },
-  menu: { padding: 6, alignSelf: 'flex-start', marginTop: 2 },
+  deleteText: { fontSize: 13, fontWeight: '700', color: colors.danger },
+  actionDisabled: { opacity: 0.6 },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────
@@ -159,7 +265,7 @@ export default function FarmerScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
+  const [actingProductId, setActingProductId] = useState<string | null>(null);
 
   // ── Add Product modal state ────────────────────────────────
   const [showAddProduct, setShowAddProduct] = useState(false);
@@ -208,7 +314,7 @@ export default function FarmerScreen() {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
-            setDeactivatingId(product.id);
+            setActingProductId(product.id);
             try {
               const updated = await deactivateProduct(product.id);
               setProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
@@ -218,7 +324,46 @@ export default function FarmerScreen() {
                 err instanceof Error ? err.message : 'Something went wrong.'
               );
             } finally {
-              setDeactivatingId(null);
+              setActingProductId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleReactivate = async (product: Product) => {
+    setActingProductId(product.id);
+    try {
+      const updated = await reactivateProduct(product.id);
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : 'Something went wrong.';
+      Alert.alert('Could not reactivate', raw.replace(/^\d{3}:\s*/, ''));
+    } finally {
+      setActingProductId(null);
+    }
+  };
+
+  const handleDelete = (product: Product) => {
+    Alert.alert(
+      'Delete permanently?',
+      'This removes the listing for good. Products with existing orders can’t be deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setActingProductId(product.id);
+            try {
+              await deleteProduct(product.id);
+              setProducts((prev) => prev.filter((p) => p.id !== product.id));
+            } catch (err) {
+              const raw = err instanceof Error ? err.message : 'Something went wrong.';
+              Alert.alert('Could not delete', raw.replace(/^\d{3}:\s*/, ''));
+            } finally {
+              setActingProductId(null);
             }
           },
         },
@@ -293,22 +438,28 @@ export default function FarmerScreen() {
 
   return (
     <SafeAreaView style={s.safeArea} edges={['top']}>
-      {/* Header */}
-      <View style={s.header}>
-        <View style={s.logoRow}>
-          <Text style={s.logoText}>FarmHustle</Text>
-          <Text style={s.logoLeaf}>🌿</Text>
+      {/* Green header banner */}
+      <View style={s.banner}>
+        <View style={s.brandRow}>
+          <View style={s.brandMark}>
+            <Ionicons name="leaf" size={17} color={colors.accent} />
+          </View>
+          <Text style={s.wordmark}>
+            Farm<Text style={s.wordmarkAccent}>Hustle</Text>
+          </Text>
         </View>
+        <Text style={s.bannerHeading}>Your Listings</Text>
+        <Text style={s.bannerSubtitle}>Manage the crops you&apos;re selling</Text>
       </View>
 
       {loadingProducts ? (
         <View style={s.loadingBlock}>
-          <ActivityIndicator color={C.primary} />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : (
         <FlatList
           style={s.scroll}
-          contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 68 }]}
+          contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 88 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           data={products}
@@ -317,25 +468,23 @@ export default function FarmerScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={[C.primary]}
-              tintColor={C.primary}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
-          }
-          ListHeaderComponent={
-            <View style={s.listingsHeader}>
-              <Text style={s.listingsTitle}>Your Listings</Text>
-            </View>
           }
           ListEmptyComponent={
             <View style={s.emptyState}>
-              <Ionicons name="leaf-outline" size={40} color="#C8E6C9" />
-              <Text style={s.emptyText}>No listings yet.</Text>
+              <View style={s.emptyCircle}>
+                <Ionicons name="leaf-outline" size={40} color={colors.primary} />
+              </View>
+              <Text style={s.emptyTitle}>No listings yet</Text>
+              <Text style={s.emptySub}>Add your first product to start selling</Text>
               <TouchableOpacity
                 style={s.emptyCta}
                 onPress={() => setShowAddProduct(true)}
                 activeOpacity={0.85}
               >
-                <Ionicons name="add" size={16} color={C.white} />
+                <Ionicons name="add" size={18} color={colors.white} />
                 <Text style={s.emptyCtaText}>Add Product</Text>
               </TouchableOpacity>
             </View>
@@ -343,8 +492,10 @@ export default function FarmerScreen() {
           renderItem={({ item }) => (
             <ListingCard
               product={item}
-              busy={deactivatingId === item.id}
+              busy={actingProductId === item.id}
               onRemove={() => handleRemove(item)}
+              onReactivate={() => handleReactivate(item)}
+              onDelete={() => handleDelete(item)}
             />
           )}
         />
@@ -357,7 +508,7 @@ export default function FarmerScreen() {
         accessibilityLabel="Add product to backend"
         accessibilityRole="button"
       >
-        <Ionicons name="add" size={22} color={C.white} />
+        <Ionicons name="add" size={22} color={colors.white} />
         <Text style={ap.fabText}>Add Product</Text>
       </TouchableOpacity>
 
@@ -367,7 +518,7 @@ export default function FarmerScreen() {
         animationType="slide"
         onRequestClose={() => { if (!submitting) setShowAddProduct(false); }}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: C.white }} edges={['top', 'bottom']}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top', 'bottom']}>
           <View style={ap.modalHeader}>
             <Text style={ap.modalTitle}>Add Product</Text>
             <TouchableOpacity
@@ -375,11 +526,11 @@ export default function FarmerScreen() {
               accessibilityLabel="Close"
               accessibilityRole="button"
             >
-              <Ionicons name="close" size={24} color={C.textPrimary} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
             <Text style={s.label}>Photo (optional)</Text>
             {imageUri ? (
               <View style={ap.photoPreviewWrap}>
@@ -391,7 +542,7 @@ export default function FarmerScreen() {
                     accessibilityLabel="Replace photo"
                     accessibilityRole="button"
                   >
-                    <Ionicons name="swap-horizontal-outline" size={16} color={C.primary} />
+                    <Ionicons name="swap-horizontal-outline" size={16} color={colors.primary} />
                     <Text style={ap.photoActionText}>Replace</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -400,8 +551,8 @@ export default function FarmerScreen() {
                     accessibilityLabel="Remove photo"
                     accessibilityRole="button"
                   >
-                    <Ionicons name="trash-outline" size={16} color="#D32F2F" />
-                    <Text style={[ap.photoActionText, { color: '#D32F2F' }]}>Remove</Text>
+                    <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                    <Text style={[ap.photoActionText, { color: colors.danger }]}>Remove</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -412,7 +563,7 @@ export default function FarmerScreen() {
                 accessibilityLabel="Add photo"
                 accessibilityRole="button"
               >
-                <Ionicons name="camera-outline" size={28} color={C.primary} />
+                <Ionicons name="camera-outline" size={28} color={colors.primary} />
                 <Text style={ap.photoPickerText}>Add photo</Text>
               </TouchableOpacity>
             )}
@@ -421,7 +572,7 @@ export default function FarmerScreen() {
             <TextInput
               style={s.input}
               placeholder="e.g. Maize"
-              placeholderTextColor={C.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={productName}
               onChangeText={setProductName}
               accessibilityLabel="Product name"
@@ -446,7 +597,7 @@ export default function FarmerScreen() {
             <TextInput
               style={s.input}
               placeholder="e.g. 500"
-              placeholderTextColor={C.textMuted}
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
               value={quantityAvailable}
               onChangeText={setQuantityAvailable}
@@ -472,7 +623,7 @@ export default function FarmerScreen() {
             <TextInput
               style={s.input}
               placeholder="e.g. 12.50"
-              placeholderTextColor={C.textMuted}
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
               value={price}
               onChangeText={setPrice}
@@ -481,9 +632,9 @@ export default function FarmerScreen() {
 
             <Text style={s.label}>Description (optional)</Text>
             <TextInput
-              style={[s.input, { height: 80, textAlignVertical: 'top' }]}
+              style={[s.input, { height: 90, textAlignVertical: 'top' }]}
               placeholder="Describe your product..."
-              placeholderTextColor={C.textMuted}
+              placeholderTextColor={colors.textMuted}
               multiline
               value={description}
               onChangeText={setDescription}
@@ -493,7 +644,7 @@ export default function FarmerScreen() {
             {submitError ? <Text style={ap.errorText}>{submitError}</Text> : null}
 
             <TouchableOpacity
-              style={[s.createBtn, submitting && { opacity: 0.6 }, { marginBottom: 32 }]}
+              style={[s.createBtn, submitting && { opacity: 0.6 }]}
               onPress={handleAddProduct}
               disabled={submitting}
               accessibilityLabel="Submit product"
@@ -501,15 +652,15 @@ export default function FarmerScreen() {
             >
               {submitting ? (
                 <>
-                  <ActivityIndicator color={C.white} />
+                  <ActivityIndicator color={colors.white} />
                   {uploadingImage ? (
                     <Text style={s.createBtnText}>Uploading image...</Text>
                   ) : null}
                 </>
               ) : (
                 <>
-                  <Ionicons name="checkmark-circle-outline" size={20} color={C.white} />
-                  <Text style={s.createBtnText}>Submit Product</Text>
+                  <Ionicons name="checkmark-circle-outline" size={20} color={colors.white} />
+                  <Text style={s.createBtnText}>List product</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -522,42 +673,72 @@ export default function FarmerScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────
 const s = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: C.white },
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 12,
-    backgroundColor: C.white,
+  safeArea: { flex: 1, backgroundColor: colors.primary },
+
+  // Green banner
+  banner: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  logoRow: { flexDirection: 'row', alignItems: 'center' },
-  logoText: { fontSize: 20, fontWeight: '700', color: C.primary },
-  logoLeaf: { fontSize: 18, marginLeft: 4 },
-  scroll: { flex: 1, backgroundColor: C.bg },
-  scrollContent: { paddingBottom: 24, flexGrow: 1 },
-  loadingBlock: { flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' },
-  label: { fontSize: 13, fontWeight: '600', color: C.textPrimary, marginBottom: 6, marginTop: 10 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  brandMark: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wordmark: { fontSize: 18, fontWeight: '800', color: colors.white, letterSpacing: 0.2 },
+  wordmarkAccent: { color: colors.accent },
+  bannerHeading: { fontSize: 22, fontWeight: '800', color: colors.white },
+  bannerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 3 },
+
+  scroll: { flex: 1, backgroundColor: colors.bg },
+  scrollContent: { paddingTop: 16, flexGrow: 1 },
+  loadingBlock: { flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' },
+
+  label: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 7, marginTop: 14 },
   input: {
-    borderWidth: 1, borderColor: C.border, borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 14, color: C.textPrimary, backgroundColor: C.white,
+    borderWidth: 1.5, borderColor: HAIRLINE, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 14, color: colors.text, backgroundColor: INPUT_BG,
   },
   createBtn: {
-    backgroundColor: C.primary, borderRadius: 10, paddingVertical: 14,
+    backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 15,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    marginTop: 16, gap: 8,
+    marginTop: 22, gap: 8,
   },
-  createBtnText: { color: C.white, fontSize: 15, fontWeight: '700' },
-  listingsHeader: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginHorizontal: 16, marginTop: 20, marginBottom: 10,
+  createBtnText: { color: colors.white, fontSize: 15, fontWeight: '700' },
+
+  // Rich empty state
+  emptyState: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40, gap: 8 },
+  emptyCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  listingsTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary },
-  emptyState: { alignItems: 'center', paddingTop: 40, gap: 12, marginHorizontal: 32 },
-  emptyText: { fontSize: 14, color: C.textMuted, textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
+  emptySub: { fontSize: 14, color: colors.textMuted, textAlign: 'center' },
   emptyCta: {
-    backgroundColor: C.primary, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10,
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  emptyCtaText: { color: C.white, fontSize: 14, fontWeight: '700' },
+  emptyCtaText: { color: colors.white, fontSize: 15, fontWeight: '700' },
 });
 
 // ─── Add Product styles ───────────────────────────────────────
@@ -566,62 +747,63 @@ const ap = StyleSheet.create({
     position: 'absolute',
     right: 20,
     bottom: 28,
-    backgroundColor: C.primary,
+    backgroundColor: colors.primary,
     borderRadius: 28,
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 13,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    elevation: 4,
+    elevation: 5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 7,
   },
-  fabText: { color: C.white, fontWeight: '700', fontSize: 14 },
+  fabText: { color: colors.white, fontWeight: '700', fontSize: 14 },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: HAIRLINE,
+    backgroundColor: colors.bg,
   },
-  modalTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: C.textPrimary },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  modalTitle: { flex: 1, fontSize: 18, fontWeight: '800', color: colors.text },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 },
   chip: {
-    borderWidth: 1,
-    borderColor: C.border,
+    borderWidth: 1.5,
+    borderColor: HAIRLINE,
     borderRadius: 20,
     paddingHorizontal: 14,
-    paddingVertical: 7,
-    backgroundColor: C.white,
+    paddingVertical: 8,
+    backgroundColor: INPUT_BG,
   },
-  chipSelected: { borderColor: C.primary, backgroundColor: C.badgeBg },
-  chipText: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
-  chipTextSelected: { color: C.primary, fontWeight: '700' },
-  errorText: { color: '#D32F2F', fontSize: 13, marginTop: 8, marginBottom: 4 },
+  chipSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
+  chipText: { fontSize: 13, color: colors.text, fontWeight: '600' },
+  chipTextSelected: { color: colors.white, fontWeight: '700' },
+  errorText: { color: colors.danger, fontSize: 13, marginTop: 12 },
   photoPicker: {
-    borderWidth: 1,
-    borderColor: C.border,
+    borderWidth: 1.5,
+    borderColor: HAIRLINE,
     borderStyle: 'dashed',
-    borderRadius: 10,
-    paddingVertical: 24,
+    borderRadius: 14,
+    paddingVertical: 28,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: C.white,
+    backgroundColor: INPUT_BG,
   },
-  photoPickerText: { fontSize: 13, fontWeight: '600', color: C.primary },
-  photoPreviewWrap: { gap: 8 },
+  photoPickerText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  photoPreviewWrap: { gap: 10 },
   photoPreview: {
     width: '100%',
-    height: 180,
-    borderRadius: 10,
-    backgroundColor: C.border,
+    height: 190,
+    borderRadius: 14,
+    backgroundColor: PLACEHOLDER_BG,
   },
-  photoActions: { flexDirection: 'row', gap: 16 },
+  photoActions: { flexDirection: 'row', gap: 18 },
   photoActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
-  photoActionText: { fontSize: 13, fontWeight: '600', color: C.primary },
+  photoActionText: { fontSize: 13, fontWeight: '700', color: colors.primary },
 });

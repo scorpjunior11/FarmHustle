@@ -2,6 +2,7 @@ package com.farmhustle.farmhustle_backend.service;
 
 import com.farmhustle.farmhustle_backend.entity.Product;
 import com.farmhustle.farmhustle_backend.entity.User;
+import com.farmhustle.farmhustle_backend.repository.OrderRepository;
 import com.farmhustle.farmhustle_backend.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 
@@ -13,9 +14,11 @@ import java.util.UUID;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final OrderRepository orderRepository;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository, OrderRepository orderRepository) {
         this.productRepository = productRepository;
+        this.orderRepository = orderRepository;
     }
 
     public Product create(Product product) {
@@ -49,7 +52,19 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    public Product reactivate(UUID id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found: " + id));
+        product.setIsActive(true);
+        return productRepository.save(product);
+    }
+
     public void delete(UUID id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found: " + id));
+        if (orderRepository.existsByProductId(product.getId())) {
+            throw new RuntimeException("Can't delete a product that has orders — deactivate it instead");
+        }
         productRepository.deleteById(id);
     }
 }

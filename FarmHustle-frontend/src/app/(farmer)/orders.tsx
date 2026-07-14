@@ -14,13 +14,18 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons";
 import { getOrdersByFarmer, updateOrderStatus, Order, OrderStatus } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
+import { THEME } from "../../theme/theme";
 
-const THEME = {
-  deepGreen: "#1B3A2B",
-  accent: "#2F7A4D",
-  white: "#FFFFFF",
-  bgLight: "#F4F7F5",
-};
+const { colors } = THEME;
+const HAIRLINE = "#EEEEEE";
+
+const cardShadow = {
+  shadowColor: "#000000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 6,
+  elevation: 2,
+} as const;
 
 const STATUS_META: Record<OrderStatus, { label: string; bg: string; fg: string }> = {
   PENDING: { label: "Pending", bg: "#F5F5F5", fg: "#757575" },
@@ -110,15 +115,29 @@ export default function FarmerOrdersScreen() {
 
   const pendingCount = orders.filter((o) => o.status === "PENDING").length;
 
+  const Banner = () => (
+    <View style={styles.banner}>
+      <Text style={styles.bannerTitle}>Incoming Orders</Text>
+      <View style={styles.bannerBottom}>
+        <Text style={styles.bannerSubtitle}>Accept or decline buyer orders</Text>
+        {pendingCount > 0 ? (
+          <View style={styles.pendingBadge}>
+            <Text style={styles.pendingBadgeText}>{pendingCount} pending</Text>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Incoming Orders</Text>
-        </View>
-        <View style={styles.centered}>
-          <Ionicons name="log-in-outline" size={40} color="#9E9E9E" />
-          <Text style={styles.emptyText}>Please log in to see your orders.</Text>
+        <Banner />
+        <View style={styles.body}>
+          <View style={styles.centered}>
+            <Ionicons name="log-in-outline" size={40} color="#9E9E9E" />
+            <Text style={styles.emptyText}>Please log in to see your orders.</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -126,48 +145,46 @@ export default function FarmerOrdersScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Incoming Orders</Text>
-        {pendingCount > 0 ? (
-          <View style={styles.pendingBadge}>
-            <Text style={styles.pendingBadgeText}>{pendingCount} pending</Text>
-          </View>
-        ) : null}
-      </View>
+      <Banner />
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={THEME.accent} />
-        </View>
-      ) : (
-        <FlatList
-          data={orders}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[THEME.accent]}
-              tintColor={THEME.accent}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.centered}>
-              <Ionicons name="receipt-outline" size={40} color="#9E9E9E" />
-              <Text style={styles.emptyText}>No orders yet.</Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <OrderCard
-              order={item}
-              busy={actingOrderId === item.id}
-              onAccept={() => handleAccept(item)}
-              onDecline={() => handleDecline(item)}
-            />
-          )}
-        />
-      )}
+      <View style={styles.body}>
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={orders}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <View style={styles.emptyCircle}>
+                  <Ionicons name="receipt-outline" size={40} color={colors.primary} />
+                </View>
+                <Text style={styles.emptyTitle}>No orders yet</Text>
+                <Text style={styles.emptySub}>New orders from buyers will appear here</Text>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <OrderCard
+                order={item}
+                busy={actingOrderId === item.id}
+                onAccept={() => handleAccept(item)}
+                onDecline={() => handleDecline(item)}
+              />
+            )}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -208,16 +225,21 @@ function OrderCard({
           onPress={() => Linking.openURL(`tel:${order.buyer!.phone}`)}
           activeOpacity={0.7}
         >
-          <Ionicons name="call-outline" size={14} color={THEME.accent} />
+          <Ionicons name="call-outline" size={14} color={colors.primary} />
           <Text style={styles.callText}>{order.buyer.phone}</Text>
         </TouchableOpacity>
       ) : null}
 
-      <Text style={styles.metaText}>
-        {order.quantity} {order.product?.unit ?? ""}
-      </Text>
+      <View style={styles.metaRow}>
+        <Ionicons name="cube-outline" size={13} color={colors.textMuted} />
+        <Text style={styles.metaText}>
+          {order.quantity} {order.product?.unit ?? ""}
+        </Text>
+      </View>
 
-      <Text style={styles.priceText}>GHS {total?.toFixed(2) ?? "0.00"}</Text>
+      <View style={styles.priceRow}>
+        <Text style={styles.priceText}>GHS {total?.toFixed(2) ?? "0.00"}</Text>
+      </View>
 
       {earnings !== null ? (
         <Text style={styles.earningsText}>
@@ -234,10 +256,10 @@ function OrderCard({
             activeOpacity={0.85}
           >
             {busy ? (
-              <ActivityIndicator color={THEME.deepGreen} size="small" />
+              <ActivityIndicator color={colors.danger} size="small" />
             ) : (
               <>
-                <Ionicons name="close-outline" size={16} color={THEME.deepGreen} />
+                <Ionicons name="close-outline" size={16} color={colors.danger} />
                 <Text style={styles.declineBtnText}>Decline</Text>
               </>
             )}
@@ -249,10 +271,10 @@ function OrderCard({
             activeOpacity={0.85}
           >
             {busy ? (
-              <ActivityIndicator color={THEME.white} size="small" />
+              <ActivityIndicator color={colors.white} size="small" />
             ) : (
               <>
-                <Ionicons name="checkmark-outline" size={16} color={THEME.white} />
+                <Ionicons name="checkmark-outline" size={16} color={colors.white} />
                 <Text style={styles.acceptBtnText}>Accept</Text>
               </>
             )}
@@ -264,25 +286,33 @@ function OrderCard({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: THEME.white },
-  header: {
+  safe: { flex: 1, backgroundColor: colors.primary },
+  body: { flex: 1, backgroundColor: colors.bg },
+
+  // Green banner
+  banner: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  bannerTitle: { fontSize: 22, fontWeight: "800", color: colors.white },
+  bannerBottom: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E0E0E0",
-    backgroundColor: THEME.white,
+    marginTop: 4,
   },
-  headerTitle: { fontSize: 20, fontWeight: "800", color: THEME.deepGreen },
+  bannerSubtitle: { fontSize: 13, color: "rgba(255,255,255,0.85)" },
   pendingBadge: {
-    backgroundColor: "#FFF3E0",
+    backgroundColor: colors.accent,
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  pendingBadgeText: { fontSize: 12, fontWeight: "700", color: "#E65100" },
+  pendingBadgeText: { fontSize: 12, fontWeight: "800", color: colors.accentText },
 
   centered: {
     flex: 1,
@@ -291,15 +321,31 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 60,
   },
-  emptyText: { fontSize: 14, color: "#757575", textAlign: "center", paddingHorizontal: 32 },
+  emptyText: { fontSize: 14, color: colors.textMuted, textAlign: "center", paddingHorizontal: 32 },
+
+  emptyState: { alignItems: "center", paddingTop: 70, paddingHorizontal: 40, gap: 8 },
+  emptyCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "#E8F5E9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  emptyTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+  emptySub: { fontSize: 14, color: colors.textMuted, textAlign: "center" },
 
   listContent: { padding: 16, flexGrow: 1 },
 
   card: {
-    backgroundColor: THEME.bgLight,
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 14,
+    ...cardShadow,
   },
   cardBusy: { opacity: 0.7 },
   cardTopRow: {
@@ -308,41 +354,43 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
-  productName: { flex: 1, fontSize: 16, fontWeight: "700", color: THEME.deepGreen },
+  productName: { flex: 1, fontSize: 16, fontWeight: "800", color: colors.text },
   badge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   badgeText: { fontSize: 11, fontWeight: "700" },
 
-  buyerText: { fontSize: 13, color: "#616161", marginTop: 4 },
+  buyerText: { fontSize: 13, color: colors.textMuted, marginTop: 6 },
   callRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
-  callText: { fontSize: 13, color: THEME.accent, fontWeight: "600" },
-  metaText: { fontSize: 13, color: "#757575", marginTop: 6 },
-  priceText: { fontSize: 16, fontWeight: "700", color: THEME.accent, marginTop: 6 },
-  earningsText: { fontSize: 12, color: "#757575", marginTop: 2 },
+  callText: { fontSize: 13, color: colors.primary, fontWeight: "600" },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 8 },
+  metaText: { fontSize: 13, color: colors.textMuted },
+  priceRow: { marginTop: 8 },
+  priceText: { fontSize: 18, fontWeight: "800", color: colors.primary },
+  earningsText: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
 
-  actionRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  actionRow: { flexDirection: "row", gap: 10, marginTop: 14 },
   acceptBtn: {
     flex: 1,
-    backgroundColor: THEME.accent,
-    borderRadius: 10,
-    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 6,
   },
-  acceptBtnText: { fontSize: 13, fontWeight: "700", color: THEME.white },
+  acceptBtnText: { fontSize: 13, fontWeight: "700", color: colors.white },
   declineBtn: {
     flex: 1,
-    backgroundColor: THEME.white,
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: "#DDD",
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderColor: "#E57373",
+    borderRadius: 12,
+    paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 6,
   },
-  declineBtnText: { fontSize: 13, fontWeight: "700", color: THEME.deepGreen },
+  declineBtnText: { fontSize: 13, fontWeight: "700", color: colors.danger },
   btnDisabled: { opacity: 0.6 },
 });

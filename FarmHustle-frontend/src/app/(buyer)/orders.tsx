@@ -25,6 +25,7 @@ import {
   declineDeliveryFee,
   initializePayment,
   initializeDeliveryPayment,
+  updateOrderStatus,
   Order,
   OrderStatus,
   Delivery,
@@ -68,6 +69,7 @@ export default function OrdersScreen() {
   const [payingDeliveryId, setPayingDeliveryId] = useState<string | null>(null);
   const [acceptingFeeDeliveryId, setAcceptingFeeDeliveryId] = useState<string | null>(null);
   const [decliningFeeDeliveryId, setDecliningFeeDeliveryId] = useState<string | null>(null);
+  const [cancelingOrderId, setCancelingOrderId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) {
@@ -198,6 +200,32 @@ export default function OrdersScreen() {
               Alert.alert("Could not decline fee", raw.replace(/^\d{3}:\s*/, ""));
             } finally {
               setDecliningFeeDeliveryId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCancelOrder = (order: Order) => {
+    Alert.alert(
+      "Cancel order",
+      "Cancel this order?",
+      [
+        { text: "Keep it", style: "cancel" },
+        {
+          text: "Cancel order",
+          style: "destructive",
+          onPress: async () => {
+            setCancelingOrderId(order.id);
+            try {
+              const updated = await updateOrderStatus(order.id, "CANCELLED");
+              setOrders((prev) => prev.map((o) => (o.id === order.id ? updated : o)));
+            } catch (err) {
+              const raw = err instanceof Error ? err.message : "Something went wrong.";
+              Alert.alert("Could not cancel order", raw.replace(/^\d{3}:\s*/, ""));
+            } finally {
+              setCancelingOrderId(null);
             }
           },
         },
@@ -358,6 +386,7 @@ export default function OrdersScreen() {
                   payingFee={delivery !== null && payingDeliveryId === delivery.id}
                   acceptingFee={delivery !== null && acceptingFeeDeliveryId === delivery.id}
                   decliningFee={delivery !== null && decliningFeeDeliveryId === delivery.id}
+                  cancelingOrder={cancelingOrderId === item.id}
                   onRequestTransport={() => openTransportModal(item)}
                   onConfirmReceived={() => delivery && handleConfirmReceived(delivery)}
                   onCancelDelivery={() => delivery && handleCancelDelivery(delivery)}
@@ -365,6 +394,7 @@ export default function OrdersScreen() {
                   onPayDeliveryFee={() => delivery && handlePayDeliveryFee(delivery)}
                   onAcceptFee={() => delivery && handleAcceptFee(delivery)}
                   onDeclineFee={() => delivery && handleDeclineFee(delivery)}
+                  onCancelOrder={() => handleCancelOrder(item)}
                 />
               );
             }}
@@ -503,6 +533,7 @@ function OrderCard({
   payingFee,
   acceptingFee,
   decliningFee,
+  cancelingOrder,
   onRequestTransport,
   onConfirmReceived,
   onCancelDelivery,
@@ -510,6 +541,7 @@ function OrderCard({
   onPayDeliveryFee,
   onAcceptFee,
   onDeclineFee,
+  onCancelOrder,
 }: {
   order: Order;
   delivery: Delivery | null;
@@ -519,6 +551,7 @@ function OrderCard({
   payingFee: boolean;
   acceptingFee: boolean;
   decliningFee: boolean;
+  cancelingOrder: boolean;
   onRequestTransport: () => void;
   onConfirmReceived: () => void;
   onCancelDelivery: () => void;
@@ -526,6 +559,7 @@ function OrderCard({
   onPayDeliveryFee: () => void;
   onAcceptFee: () => void;
   onDeclineFee: () => void;
+  onCancelOrder: () => void;
 }) {
   const meta = STATUS_META[order.status];
   const price = order.agreedPrice ?? order.initialPrice;
@@ -557,6 +591,24 @@ function OrderCard({
       </Text>
 
       <Text style={styles.priceText}>GHS {price}</Text>
+
+      {order.status === "PENDING" ? (
+        <TouchableOpacity
+          style={[styles.cancelOrderBtn, cancelingOrder && styles.btnDisabled]}
+          onPress={onCancelOrder}
+          disabled={cancelingOrder}
+          activeOpacity={0.85}
+        >
+          {cancelingOrder ? (
+            <ActivityIndicator color={colors.danger} size="small" />
+          ) : (
+            <>
+              <Ionicons name="close-outline" size={16} color={colors.danger} />
+              <Text style={styles.cancelOrderBtnText}>Cancel order</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      ) : null}
 
       {order.status === "AWAITING_PAYMENT" ? (
         <TouchableOpacity
@@ -813,6 +865,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   declineFeeBtnText: { fontSize: 13, fontWeight: "700", color: colors.danger },
+
+  cancelOrderBtn: {
+    marginTop: 12,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: "#E57373",
+    borderRadius: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  cancelOrderBtnText: { fontSize: 13, fontWeight: "700", color: colors.danger },
 
   waitingRow: {
     marginTop: 12,

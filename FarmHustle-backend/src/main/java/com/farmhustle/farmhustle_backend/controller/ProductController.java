@@ -52,18 +52,28 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        if (productService.getById(id).isEmpty()) {
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<?> delete(@PathVariable UUID id) {
+        try {
+            productService.delete(id);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
-        productService.delete(id);
-        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/deactivate")
     public ResponseEntity<?> deactivate(@PathVariable UUID id) {
         try {
             return ResponseEntity.ok(productService.deactivate(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PatchMapping("/{id}/reactivate")
+    public ResponseEntity<?> reactivate(@PathVariable UUID id) {
+        try {
+            return ResponseEntity.ok(productService.reactivate(id));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

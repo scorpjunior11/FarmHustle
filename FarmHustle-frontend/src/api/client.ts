@@ -51,6 +51,27 @@ export async function deactivateProduct(productId: string): Promise<Product> {
   return response.json() as Promise<Product>;
 }
 
+export async function reactivateProduct(productId: string): Promise<Product> {
+  const response = await fetch(`${BASE_URL}/api/products/${productId}/reactivate`, {
+    method: "PATCH",
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Product>;
+}
+
+export async function deleteProduct(productId: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/api/products/${productId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+}
+
 export async function createProduct(data: {
   name: string;
   category: string;

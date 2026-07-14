@@ -15,13 +15,40 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons";
 import { getDeliveries, acceptDelivery, Delivery } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
+import { THEME } from "../../theme/theme";
 
-const THEME = {
-  deepGreen: "#1B3A2B",
-  accent: "#2F7A4D",
-  white: "#FFFFFF",
-  bgLight: "#F4F7F5",
-};
+const { colors } = THEME;
+const HAIRLINE = "#EEEEEE";
+const INPUT_BG = "#F5F6F5";
+const EMPTY_CIRCLE = "#E8F3E9";
+
+const cardShadow = {
+  shadowColor: "#000000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 6,
+  elevation: 2,
+} as const;
+
+function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyCircle}>
+        <Ionicons name={icon} size={40} color={colors.primary} />
+      </View>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptySub}>{subtitle}</Text>
+    </View>
+  );
+}
 
 export default function DeliveryJobsScreen() {
   const { user } = useAuth();
@@ -98,12 +125,15 @@ export default function DeliveryJobsScreen() {
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Available Jobs</Text>
+        <View style={styles.banner}>
+          <Text style={styles.bannerTitle}>Available Jobs</Text>
         </View>
-        <View style={styles.centered}>
-          <Ionicons name="log-in-outline" size={40} color="#9E9E9E" />
-          <Text style={styles.emptyText}>Please log in to see available jobs.</Text>
+        <View style={styles.body}>
+          <EmptyState
+            icon="log-in-outline"
+            title="Please log in"
+            subtitle="Log in to see delivery jobs available near you."
+          />
         </View>
       </SafeAreaView>
     );
@@ -111,38 +141,42 @@ export default function DeliveryJobsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Available Jobs</Text>
+      <View style={styles.banner}>
+        <Text style={styles.bannerTitle}>Available Jobs</Text>
+        <Text style={styles.bannerSubtitle}>Accept delivery requests near you</Text>
       </View>
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={THEME.accent} />
-        </View>
-      ) : (
-        <FlatList
-          data={openJobs}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[THEME.accent]}
-              tintColor={THEME.accent}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.centered}>
-              <Ionicons name="cube-outline" size={40} color="#9E9E9E" />
-              <Text style={styles.emptyText}>No available jobs right now.</Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <JobCard delivery={item} onAccept={() => openAcceptModal(item)} />
-          )}
-        />
-      )}
+      <View style={styles.body}>
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={openJobs}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+            ListEmptyComponent={
+              <EmptyState
+                icon="cube-outline"
+                title="No jobs available yet"
+                subtitle="New delivery requests will show up here. Pull down to refresh."
+              />
+            }
+            renderItem={({ item }) => (
+              <JobCard delivery={item} onAccept={() => openAcceptModal(item)} />
+            )}
+          />
+        )}
+      </View>
 
       {/* Accept & Set Fee Modal */}
       <Modal
@@ -154,15 +188,21 @@ export default function DeliveryJobsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Set your delivery fee</Text>
-            <Text style={styles.modalSubtitle}>
-              {acceptingDelivery?.pickupLocation ?? "?"} →{" "}
-              {acceptingDelivery?.deliveryLocation ?? "?"}
-            </Text>
+            <View style={styles.modalRoute}>
+              <Ionicons name="location-outline" size={14} color={colors.primary} />
+              <Text style={styles.modalRouteText} numberOfLines={1}>
+                {acceptingDelivery?.pickupLocation ?? "?"}
+              </Text>
+              <Ionicons name="arrow-forward" size={13} color={colors.textMuted} />
+              <Text style={styles.modalRouteText} numberOfLines={1}>
+                {acceptingDelivery?.deliveryLocation ?? "?"}
+              </Text>
+            </View>
 
             <TextInput
               style={styles.input}
               placeholder="Fee (GHS)"
-              placeholderTextColor="#9E9E9E"
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
               value={feeInput}
               onChangeText={setFeeInput}
@@ -190,7 +230,7 @@ export default function DeliveryJobsScreen() {
                 activeOpacity={0.85}
               >
                 {submitting ? (
-                  <ActivityIndicator color={THEME.white} size="small" />
+                  <ActivityIndicator color={colors.white} size="small" />
                 ) : (
                   <Text style={styles.confirmBtnText}>Confirm</Text>
                 )}
@@ -215,26 +255,30 @@ function JobCard({
   return (
     <View style={styles.card}>
       <View style={styles.routeRow}>
+        <Ionicons name="location-outline" size={15} color={colors.primary} />
         <Text style={styles.routeText} numberOfLines={1}>
           {delivery.pickupLocation ?? "Unknown"}
         </Text>
-        <Ionicons name="arrow-forward" size={16} color={THEME.accent} style={styles.routeArrow} />
+        <Ionicons name="arrow-forward" size={15} color={colors.textMuted} style={styles.routeArrow} />
         <Text style={styles.routeText} numberOfLines={1}>
           {delivery.deliveryLocation ?? "Unknown"}
         </Text>
       </View>
 
-      {order ? (
-        <Text style={styles.detailText}>
-          {order.product?.name ?? "Unknown product"} · {order.quantity}{" "}
-          {order.product?.unit ?? ""} for {order.buyer?.name ?? "Unknown buyer"}
-        </Text>
-      ) : (
-        <Text style={styles.detailText}>Standalone delivery</Text>
-      )}
+      <View style={styles.detailRow}>
+        <Ionicons name={order ? "cube-outline" : "cube-outline"} size={13} color={colors.textMuted} />
+        {order ? (
+          <Text style={styles.detailText} numberOfLines={2}>
+            {order.product?.name ?? "Unknown product"} · {order.quantity}{" "}
+            {order.product?.unit ?? ""} for {order.buyer?.name ?? "Unknown buyer"}
+          </Text>
+        ) : (
+          <Text style={styles.detailText}>Standalone delivery</Text>
+        )}
+      </View>
 
       <TouchableOpacity style={styles.acceptBtn} onPress={onAccept} activeOpacity={0.85}>
-        <Ionicons name="checkmark-circle-outline" size={16} color={THEME.white} />
+        <Ionicons name="checkmark-circle-outline" size={16} color={colors.white} />
         <Text style={styles.acceptBtnText}>Accept &amp; set fee</Text>
       </TouchableOpacity>
     </View>
@@ -242,98 +286,121 @@ function JobCard({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: THEME.white },
-  header: {
+  safe: { flex: 1, backgroundColor: colors.primary },
+  body: { flex: 1, backgroundColor: colors.bg },
+
+  // Green banner
+  banner: {
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E0E0E0",
-    backgroundColor: THEME.white,
+    paddingTop: 6,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  headerTitle: { fontSize: 20, fontWeight: "800", color: THEME.deepGreen },
+  bannerTitle: { fontSize: 22, fontWeight: "800", color: colors.white },
+  bannerSubtitle: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 4 },
 
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    gap: 10,
     paddingTop: 60,
   },
-  emptyText: { fontSize: 14, color: "#757575", textAlign: "center", paddingHorizontal: 32 },
+
+  // Rich empty state
+  emptyState: { alignItems: "center", paddingTop: 70, paddingHorizontal: 40, gap: 8 },
+  emptyCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: EMPTY_CIRCLE,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  emptyTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+  emptySub: { fontSize: 14, color: colors.textMuted, textAlign: "center", lineHeight: 20 },
 
   listContent: { padding: 16, flexGrow: 1 },
 
   card: {
-    backgroundColor: THEME.bgLight,
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 14,
+    ...cardShadow,
   },
-  routeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  routeText: { flex: 1, fontSize: 14, fontWeight: "700", color: THEME.deepGreen },
+  routeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  routeText: { flexShrink: 1, fontSize: 14, fontWeight: "800", color: colors.text },
   routeArrow: { flexShrink: 0 },
 
-  detailText: { fontSize: 13, color: "#616161", marginTop: 8 },
+  detailRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 10 },
+  detailText: { flex: 1, fontSize: 13, color: colors.textMuted },
 
   acceptBtn: {
-    marginTop: 12,
-    backgroundColor: THEME.accent,
-    borderRadius: 10,
-    paddingVertical: 10,
+    marginTop: 14,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
   },
-  acceptBtnText: { fontSize: 13, fontWeight: "700", color: THEME.white },
+  acceptBtnText: { fontSize: 13, fontWeight: "700", color: colors.white },
 
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
   },
   modalCard: {
-    backgroundColor: THEME.white,
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 22,
     width: "100%",
   },
-  modalTitle: { fontSize: 17, fontWeight: "800", color: THEME.deepGreen },
-  modalSubtitle: { fontSize: 13, color: "#757575", marginTop: 6, marginBottom: 14 },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+  modalRoute: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, marginBottom: 16 },
+  modalRouteText: { flexShrink: 1, fontSize: 13, color: colors.textMuted, fontWeight: "600" },
   input: {
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderWidth: 1.5,
+    borderColor: HAIRLINE,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 14,
-    color: "#212121",
-    backgroundColor: THEME.white,
+    color: colors.text,
+    backgroundColor: INPUT_BG,
   },
-  helperText: { fontSize: 11, color: "#9E9E9E", marginTop: 6 },
-  errorText: { fontSize: 13, color: "#D32F2F", marginTop: 10 },
+  helperText: { fontSize: 11, color: colors.textMuted, marginTop: 8 },
+  errorText: { fontSize: 13, color: colors.danger, marginTop: 10 },
 
-  modalActions: { flexDirection: "row", gap: 10, marginTop: 18 },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 20 },
   cancelBtn: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: "#DDD",
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderWidth: 1.5,
+    borderColor: HAIRLINE,
+    borderRadius: 12,
+    paddingVertical: 13,
     alignItems: "center",
     justifyContent: "center",
   },
-  cancelBtnText: { fontSize: 14, fontWeight: "600", color: THEME.deepGreen },
+  cancelBtnText: { fontSize: 14, fontWeight: "700", color: colors.text },
   confirmBtn: {
     flex: 1,
-    backgroundColor: THEME.accent,
-    borderRadius: 10,
-    paddingVertical: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 13,
     alignItems: "center",
     justifyContent: "center",
   },
-  confirmBtnText: { fontSize: 14, fontWeight: "700", color: THEME.white },
+  confirmBtnText: { fontSize: 14, fontWeight: "700", color: colors.white },
   btnDisabled: { opacity: 0.65 },
 });

@@ -20,19 +20,45 @@ import {
   DeliveryStatus,
 } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
+import { THEME } from "../../theme/theme";
 
-const THEME = {
-  deepGreen: "#1B3A2B",
-  accent: "#2F7A4D",
-  white: "#FFFFFF",
-  bgLight: "#F4F7F5",
-};
+const { colors } = THEME;
+const HAIRLINE = "#EEEEEE";
+const EMPTY_CIRCLE = "#E8F3E9";
+
+const cardShadow = {
+  shadowColor: "#000000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 6,
+  elevation: 2,
+} as const;
 
 const STATUS_META: Partial<Record<DeliveryStatus, { label: string; bg: string; fg: string }>> = {
   FEE_PROPOSED: { label: "Awaiting buyer", bg: "#F3E5F5", fg: "#6A1B9A" },
   ACCEPTED: { label: "Accepted", bg: "#FFF8E1", fg: "#F57F17" },
   IN_TRANSIT: { label: "In transit", bg: "#E3F2FD", fg: "#1565C0" },
 };
+
+function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyCircle}>
+        <Ionicons name={icon} size={40} color={colors.primary} />
+      </View>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptySub}>{subtitle}</Text>
+    </View>
+  );
+}
 
 export default function ActiveDeliveriesScreen() {
   const { user } = useAuth();
@@ -106,12 +132,15 @@ export default function ActiveDeliveriesScreen() {
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Active Deliveries</Text>
+        <View style={styles.banner}>
+          <Text style={styles.bannerTitle}>Active Deliveries</Text>
         </View>
-        <View style={styles.centered}>
-          <Ionicons name="log-in-outline" size={40} color="#9E9E9E" />
-          <Text style={styles.emptyText}>Please log in to see your active deliveries.</Text>
+        <View style={styles.body}>
+          <EmptyState
+            icon="log-in-outline"
+            title="Please log in"
+            subtitle="Log in to track and complete your active deliveries."
+          />
         </View>
       </SafeAreaView>
     );
@@ -119,43 +148,47 @@ export default function ActiveDeliveriesScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Active Deliveries</Text>
+      <View style={styles.banner}>
+        <Text style={styles.bannerTitle}>Active Deliveries</Text>
+        <Text style={styles.bannerSubtitle}>Track and complete your jobs</Text>
       </View>
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={THEME.accent} />
-        </View>
-      ) : (
-        <FlatList
-          data={activeJobs}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[THEME.accent]}
-              tintColor={THEME.accent}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.centered}>
-              <Ionicons name="cube-outline" size={40} color="#9E9E9E" />
-              <Text style={styles.emptyText}>No active deliveries.</Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <DeliveryCard
-              delivery={item}
-              busy={actingDeliveryId === item.id}
-              onStart={() => handleStartDelivery(item)}
-              onMarkDelivered={() => handleMarkDelivered(item)}
-            />
-          )}
-        />
-      )}
+      <View style={styles.body}>
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={activeJobs}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+            ListEmptyComponent={
+              <EmptyState
+                icon="cube-outline"
+                title="No active deliveries"
+                subtitle="Jobs you accept will appear here to track and complete."
+              />
+            }
+            renderItem={({ item }) => (
+              <DeliveryCard
+                delivery={item}
+                busy={actingDeliveryId === item.id}
+                onStart={() => handleStartDelivery(item)}
+                onMarkDelivered={() => handleMarkDelivered(item)}
+              />
+            )}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -179,10 +212,11 @@ function DeliveryCard({
     <View style={[styles.card, busy && styles.cardBusy]}>
       <View style={styles.cardTopRow}>
         <View style={styles.routeRow}>
+          <Ionicons name="location-outline" size={15} color={colors.primary} />
           <Text style={styles.routeText} numberOfLines={1}>
             {delivery.pickupLocation ?? "Unknown"}
           </Text>
-          <Ionicons name="arrow-forward" size={16} color={THEME.accent} style={styles.routeArrow} />
+          <Ionicons name="arrow-forward" size={15} color={colors.textMuted} style={styles.routeArrow} />
           <Text style={styles.routeText} numberOfLines={1}>
             {delivery.deliveryLocation ?? "Unknown"}
           </Text>
@@ -194,14 +228,17 @@ function DeliveryCard({
         ) : null}
       </View>
 
-      {order ? (
-        <Text style={styles.detailText}>
-          {order.product?.name ?? "Unknown product"} · {order.quantity}{" "}
-          {order.product?.unit ?? ""} for {order.buyer?.name ?? "Unknown buyer"}
-        </Text>
-      ) : (
-        <Text style={styles.detailText}>Standalone delivery</Text>
-      )}
+      <View style={styles.detailRow}>
+        <Ionicons name="cube-outline" size={13} color={colors.textMuted} />
+        {order ? (
+          <Text style={styles.detailText} numberOfLines={2}>
+            {order.product?.name ?? "Unknown product"} · {order.quantity}{" "}
+            {order.product?.unit ?? ""} for {order.buyer?.name ?? "Unknown buyer"}
+          </Text>
+        ) : (
+          <Text style={styles.detailText}>Standalone delivery</Text>
+        )}
+      </View>
 
       {order?.buyer?.phone ? (
         <TouchableOpacity
@@ -209,7 +246,7 @@ function DeliveryCard({
           onPress={() => Linking.openURL(`tel:${order.buyer!.phone}`)}
           activeOpacity={0.7}
         >
-          <Ionicons name="call-outline" size={14} color={THEME.accent} />
+          <Ionicons name="call-outline" size={14} color={colors.primary} />
           <Text style={styles.callText}>{order.buyer.phone}</Text>
         </TouchableOpacity>
       ) : null}
@@ -218,7 +255,7 @@ function DeliveryCard({
 
       {delivery.status === "FEE_PROPOSED" ? (
         <View style={styles.waitingRow}>
-          <Ionicons name="time-outline" size={16} color="#757575" />
+          <Ionicons name="time-outline" size={16} color={colors.textMuted} />
           <Text style={styles.waitingText}>Waiting for buyer to accept fee</Text>
         </View>
       ) : delivery.status === "ACCEPTED" ? (
@@ -229,17 +266,17 @@ function DeliveryCard({
           activeOpacity={0.85}
         >
           {busy ? (
-            <ActivityIndicator color={THEME.white} size="small" />
+            <ActivityIndicator color={colors.white} size="small" />
           ) : (
             <>
-              <Ionicons name="play-outline" size={16} color={THEME.white} />
+              <Ionicons name="play-outline" size={16} color={colors.white} />
               <Text style={styles.actionBtnText}>Start delivery</Text>
             </>
           )}
         </TouchableOpacity>
       ) : waitingForBuyer ? (
         <View style={styles.waitingRow}>
-          <Ionicons name="time-outline" size={16} color="#757575" />
+          <Ionicons name="time-outline" size={16} color={colors.textMuted} />
           <Text style={styles.waitingText}>Waiting for buyer to confirm</Text>
         </View>
       ) : delivery.status === "IN_TRANSIT" ? (
@@ -250,10 +287,10 @@ function DeliveryCard({
           activeOpacity={0.85}
         >
           {busy ? (
-            <ActivityIndicator color={THEME.white} size="small" />
+            <ActivityIndicator color={colors.white} size="small" />
           ) : (
             <>
-              <Ionicons name="checkmark-done-outline" size={16} color={THEME.white} />
+              <Ionicons name="checkmark-done-outline" size={16} color={colors.white} />
               <Text style={styles.actionBtnText}>Mark delivered</Text>
             </>
           )}
@@ -264,32 +301,52 @@ function DeliveryCard({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: THEME.white },
-  header: {
+  safe: { flex: 1, backgroundColor: colors.primary },
+  body: { flex: 1, backgroundColor: colors.bg },
+
+  // Green banner
+  banner: {
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E0E0E0",
-    backgroundColor: THEME.white,
+    paddingTop: 6,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  headerTitle: { fontSize: 20, fontWeight: "800", color: THEME.deepGreen },
+  bannerTitle: { fontSize: 22, fontWeight: "800", color: colors.white },
+  bannerSubtitle: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 4 },
 
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    gap: 10,
     paddingTop: 60,
   },
-  emptyText: { fontSize: 14, color: "#757575", textAlign: "center", paddingHorizontal: 32 },
+
+  // Rich empty state
+  emptyState: { alignItems: "center", paddingTop: 70, paddingHorizontal: 40, gap: 8 },
+  emptyCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: EMPTY_CIRCLE,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  emptyTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+  emptySub: { fontSize: 14, color: colors.textMuted, textAlign: "center", lineHeight: 20 },
 
   listContent: { padding: 16, flexGrow: 1 },
 
   card: {
-    backgroundColor: THEME.bgLight,
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 14,
+    ...cardShadow,
   },
   cardBusy: { opacity: 0.7 },
   cardTopRow: {
@@ -298,37 +355,38 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
-  routeRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
-  routeText: { flexShrink: 1, fontSize: 14, fontWeight: "700", color: THEME.deepGreen },
+  routeRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  routeText: { flexShrink: 1, fontSize: 14, fontWeight: "800", color: colors.text },
   routeArrow: { flexShrink: 0 },
   badge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   badgeText: { fontSize: 11, fontWeight: "700" },
 
-  detailText: { fontSize: 13, color: "#616161", marginTop: 8 },
-  callRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
-  callText: { fontSize: 13, color: THEME.accent, fontWeight: "600" },
-  feeText: { fontSize: 16, fontWeight: "700", color: THEME.accent, marginTop: 6 },
+  detailRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 10 },
+  detailText: { flex: 1, fontSize: 13, color: colors.textMuted },
+  callRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+  callText: { fontSize: 13, color: colors.primary, fontWeight: "600" },
+  feeText: { fontSize: 18, fontWeight: "800", color: colors.primary, marginTop: 8 },
 
   actionBtn: {
-    marginTop: 12,
-    backgroundColor: THEME.accent,
-    borderRadius: 10,
-    paddingVertical: 10,
+    marginTop: 14,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
   },
-  actionBtnText: { fontSize: 13, fontWeight: "700", color: THEME.white },
+  actionBtnText: { fontSize: 13, fontWeight: "700", color: colors.white },
   btnDisabled: { opacity: 0.65 },
 
   waitingRow: {
-    marginTop: 12,
+    marginTop: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
     paddingVertical: 10,
   },
-  waitingText: { fontSize: 13, fontWeight: "600", color: "#757575" },
+  waitingText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
 });
