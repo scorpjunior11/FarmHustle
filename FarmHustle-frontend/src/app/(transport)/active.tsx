@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   Linking,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import {
   getDeliveries,
@@ -36,6 +36,7 @@ const STATUS_META: Partial<Record<DeliveryStatus, { label: string; bg: string; f
 
 export default function ActiveDeliveriesScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -130,7 +131,7 @@ export default function ActiveDeliveriesScreen() {
         <FlatList
           data={activeJobs}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

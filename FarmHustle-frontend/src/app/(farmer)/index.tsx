@@ -13,7 +13,7 @@ import {
   Modal,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons, Entypo } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { createProduct, getProducts, deactivateProduct, Product } from '../../api/client';
@@ -155,6 +155,7 @@ const cardStyles = StyleSheet.create({
 // ─── Main Screen ──────────────────────────────────────────────
 export default function FarmerScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -307,7 +308,7 @@ export default function FarmerScreen() {
       ) : (
         <FlatList
           style={s.scroll}
-          contentContainerStyle={s.scrollContent}
+          contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 68 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           data={products}
@@ -351,7 +352,7 @@ export default function FarmerScreen() {
 
       {/* FAB — opens the Add Product modal */}
       <TouchableOpacity
-        style={ap.fab}
+        style={[ap.fab, { bottom: insets.bottom + 76 }]}
         onPress={() => setShowAddProduct(true)}
         accessibilityLabel="Add product to backend"
         accessibilityRole="button"

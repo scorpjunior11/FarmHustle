@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { getOrdersByFarmer, Order } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
@@ -25,6 +25,7 @@ const netOf = (order: Order) => (order.agreedPrice ?? order.initialPrice) * 0.95
 
 export default function EarningsScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -87,7 +88,7 @@ export default function EarningsScreen() {
         <FlatList
           data={earnedOrders}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

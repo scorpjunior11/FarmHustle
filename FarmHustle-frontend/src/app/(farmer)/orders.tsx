@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   Linking,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { getOrdersByFarmer, updateOrderStatus, Order, OrderStatus } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
@@ -36,6 +36,7 @@ const STATUS_META: Record<OrderStatus, { label: string; bg: string; fg: string }
 
 export default function FarmerOrdersScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -142,7 +143,7 @@ export default function FarmerOrdersScreen() {
         <FlatList
           data={orders}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

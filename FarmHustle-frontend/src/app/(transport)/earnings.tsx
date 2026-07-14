@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { getDeliveries, Delivery } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
@@ -23,6 +23,7 @@ const netOf = (delivery: Delivery) => (delivery.deliveryFee ?? 0) * 0.9;
 
 export default function TransportEarningsScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -85,7 +86,7 @@ export default function TransportEarningsScreen() {
         <FlatList
           data={deliveredJobs}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

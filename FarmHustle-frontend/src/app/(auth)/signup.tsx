@@ -14,16 +14,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { signup } from "../../api/client";
+import { THEME } from "../../theme/theme";
 
-const THEME = {
-  deepGreen: "#1B3A2B",
-  accent: "#2F7A4D",
-  white: "#FFFFFF",
-  inputBorder: "#D0D9D4",
-  placeholder: "#9EB3A9",
-  errorRed: "#C62828",
-  bgLight: "#F4F7F5",
-};
+const { colors } = THEME;
+const HAIRLINE = "#ECECEC";
+const INPUT_BG = "#F5F6F5";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^0\d{9}$/;
@@ -46,6 +41,7 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   async function handleSignup() {
     if (!name.trim() || !email.trim() || !phone.trim() || !password.trim() || !city.trim()) {
@@ -85,79 +81,98 @@ export default function SignupScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <StatusBar barStyle="dark-content" backgroundColor={THEME.white} />
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-        {/* Logo / brand */}
+      {/* Green banner */}
+      <View style={styles.banner}>
         <View style={styles.brandRow}>
-          <Ionicons name="leaf" size={28} color={THEME.accent} />
-          <Text style={styles.brandText}>FarmHustle</Text>
+          <View style={styles.brandMark}>
+            <Ionicons name="leaf" size={18} color={colors.accent} />
+          </View>
+          <Text style={styles.wordmark}>
+            Farm<Text style={styles.wordmarkAccent}>Hustle</Text>
+          </Text>
         </View>
-
         <Text style={styles.heading}>Create account</Text>
         <Text style={styles.subheading}>Join the marketplace for farmers and buyers</Text>
+      </View>
 
-        {/* Fields */}
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={styles.bodyContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.form}>
-          <Field label="Full name" icon="person-outline">
+          <Field label="Full name" icon="person-outline" focused={focusedField === "name"}>
             <TextInput
               style={styles.input}
               placeholder="Your name"
-              placeholderTextColor={THEME.placeholder}
+              placeholderTextColor={colors.textMuted}
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
+              onFocus={() => setFocusedField("name")}
+              onBlur={() => setFocusedField(null)}
             />
           </Field>
 
-          <Field label="Email" icon="mail-outline">
+          <Field label="Email" icon="mail-outline" focused={focusedField === "email"}>
             <TextInput
               style={styles.input}
               placeholder="you@example.com"
-              placeholderTextColor={THEME.placeholder}
+              placeholderTextColor={colors.textMuted}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              onFocus={() => setFocusedField("email")}
+              onBlur={() => setFocusedField(null)}
             />
           </Field>
 
-          <Field label="Phone" icon="call-outline">
+          <Field label="Phone" icon="call-outline" focused={focusedField === "phone"}>
             <TextInput
               style={styles.input}
               placeholder="0241234567"
-              placeholderTextColor={THEME.placeholder}
+              placeholderTextColor={colors.textMuted}
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
+              onFocus={() => setFocusedField("phone")}
+              onBlur={() => setFocusedField(null)}
             />
           </Field>
 
-          <Field label="Password" icon="lock-closed-outline">
+          <Field label="Password" icon="lock-closed-outline" focused={focusedField === "password"}>
             <TextInput
               style={[styles.input, styles.inputFlex]}
               placeholder="Min. 8 characters"
-              placeholderTextColor={THEME.placeholder}
+              placeholderTextColor={colors.textMuted}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
+              onFocus={() => setFocusedField("password")}
+              onBlur={() => setFocusedField(null)}
             />
             <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.eyeBtn}>
-              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={THEME.placeholder} />
+              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </Field>
 
-          <Field label="City" icon="location-outline">
+          <Field label="City" icon="location-outline" focused={focusedField === "city"}>
             <TextInput
               style={styles.input}
               placeholder="e.g. Accra, Lagos"
-              placeholderTextColor={THEME.placeholder}
+              placeholderTextColor={colors.textMuted}
               value={city}
               onChangeText={setCity}
               autoCapitalize="words"
+              onFocus={() => setFocusedField("city")}
+              onBlur={() => setFocusedField(null)}
             />
           </Field>
 
@@ -171,12 +186,12 @@ export default function SignupScreen() {
                   key={opt.value}
                   style={[styles.roleCard, selected && styles.roleCardSelected]}
                   onPress={() => setRole(opt.value)}
-                  activeOpacity={0.75}
+                  activeOpacity={0.8}
                 >
                   <Ionicons
                     name={opt.icon}
                     size={22}
-                    color={selected ? THEME.white : THEME.accent}
+                    color={selected ? colors.white : colors.primary}
                   />
                   <Text style={[styles.roleLabel, selected && styles.roleLabelSelected]}>
                     {opt.label}
@@ -189,7 +204,7 @@ export default function SignupScreen() {
           {/* Inline error */}
           {!!error && (
             <View style={styles.errorBox}>
-              <Ionicons name="alert-circle-outline" size={16} color={THEME.errorRed} />
+              <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
@@ -202,7 +217,7 @@ export default function SignupScreen() {
             activeOpacity={0.85}
           >
             {loading ? (
-              <ActivityIndicator color={THEME.white} size="small" />
+              <ActivityIndicator color={colors.white} size="small" />
             ) : (
               <Text style={styles.submitBtnText}>Create account</Text>
             )}
@@ -224,17 +239,19 @@ export default function SignupScreen() {
 function Field({
   label,
   icon,
+  focused,
   children,
 }: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
+  focused?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <View style={styles.fieldGroup}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={styles.inputRow}>
-        <Ionicons name={icon} size={18} color={THEME.accent} style={styles.inputIcon} />
+      <View style={[styles.inputRow, focused && styles.inputRowFocused]}>
+        <Ionicons name={icon} size={18} color={colors.primary} style={styles.inputIcon} />
         {children}
       </View>
     </View>
@@ -242,37 +259,55 @@ function Field({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: THEME.white },
-  scroll: { paddingHorizontal: 24, paddingTop: 28, paddingBottom: 36 },
+  safe: { flex: 1, backgroundColor: colors.primary },
 
-  brandRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 28,
+  // Green banner
+  banner: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 28,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
-  brandText: { fontSize: 22, fontWeight: "800", color: THEME.deepGreen },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 },
+  brandMark: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  wordmark: { fontSize: 20, fontWeight: "800", color: colors.white, letterSpacing: 0.2 },
+  wordmarkAccent: { color: colors.accent },
+  heading: { fontSize: 25, fontWeight: "800", color: colors.white },
+  subheading: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 4 },
 
-  heading: { fontSize: 26, fontWeight: "800", color: THEME.deepGreen, marginBottom: 6 },
-  subheading: { fontSize: 14, color: "#6B8C7E", marginBottom: 28 },
-
+  // White body
+  body: { flex: 1, backgroundColor: colors.bg },
+  bodyContent: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 },
   form: { gap: 16 },
 
   fieldGroup: { gap: 6 },
-  fieldLabel: { fontSize: 13, fontWeight: "600", color: THEME.deepGreen },
+  fieldLabel: { fontSize: 13, fontWeight: "700", color: colors.text },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: THEME.inputBorder,
-    borderRadius: 12,
-    backgroundColor: THEME.bgLight,
-    paddingHorizontal: 12,
+    borderColor: HAIRLINE,
+    borderRadius: 14,
+    backgroundColor: INPUT_BG,
+    paddingHorizontal: 14,
     paddingVertical: 13,
     gap: 8,
   },
+  inputRowFocused: {
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
+  },
   inputIcon: { flexShrink: 0 },
-  input: { flex: 1, fontSize: 15, color: "#1A1A1A" },
+  input: { flex: 1, fontSize: 15, color: colors.text, paddingVertical: 0 },
   inputFlex: { flex: 1 },
   eyeBtn: { padding: 2 },
 
@@ -280,41 +315,41 @@ const styles = StyleSheet.create({
   roleCard: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 16,
+    borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: THEME.inputBorder,
-    backgroundColor: THEME.bgLight,
+    borderColor: HAIRLINE,
+    backgroundColor: INPUT_BG,
     gap: 6,
   },
   roleCardSelected: {
-    backgroundColor: THEME.accent,
-    borderColor: THEME.accent,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  roleLabel: { fontSize: 13, fontWeight: "600", color: THEME.accent },
-  roleLabelSelected: { color: THEME.white },
+  roleLabel: { fontSize: 13, fontWeight: "700", color: colors.text },
+  roleLabelSelected: { color: colors.white },
 
   errorBox: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "#FFEBEE",
-    borderRadius: 8,
-    padding: 10,
+    gap: 8,
+    backgroundColor: "#FDECEA",
+    borderRadius: 12,
+    padding: 12,
   },
-  errorText: { fontSize: 13, color: THEME.errorRed, flex: 1 },
+  errorText: { fontSize: 13, color: colors.danger, flex: 1, fontWeight: "500" },
 
   submitBtn: {
-    backgroundColor: THEME.accent,
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 4,
   },
   submitBtnDisabled: { opacity: 0.65 },
-  submitBtnText: { fontSize: 16, fontWeight: "700", color: THEME.white },
+  submitBtnText: { fontSize: 16, fontWeight: "700", color: colors.white },
 
-  linkRow: { alignItems: "center", marginTop: 8 },
-  linkText: { fontSize: 14, color: "#6B8C7E" },
-  linkAction: { color: THEME.accent, fontWeight: "700" },
+  linkRow: { alignItems: "center", marginTop: 10 },
+  linkText: { fontSize: 14, color: colors.textMuted },
+  linkAction: { color: colors.primary, fontWeight: "800" },
 });

@@ -7,21 +7,27 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { getOrdersByBuyer, updateProfilePhoto } from "../../api/client";
 import { uploadImageToCloudinary } from "../../api/uploadImage";
 import { useAuth } from "../../context/AuthContext";
+import { THEME } from "../../theme/theme";
 
-const THEME = {
-  deepGreen: "#1B3A2B",
-  accent: "#2F7A4D",
-  white: "#FFFFFF",
-  bgLight: "#F4F7F5",
-};
+const { colors } = THEME;
+const HAIRLINE = "#EEEEEE";
+
+const cardShadow = {
+  shadowColor: "#000000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 6,
+  elevation: 2,
+} as const;
 
 function formatMemberSince(createdAt: string | null | undefined): string {
   if (!createdAt) return "—";
@@ -32,6 +38,7 @@ function formatMemberSince(createdAt: string | null | undefined): string {
 
 export default function ProfileScreen() {
   const { user, setUser } = useAuth();
+  const insets = useSafeAreaInsets();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [statCount, setStatCount] = useState(0);
   const [statLoading, setStatLoading] = useState(true);
@@ -105,12 +112,14 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
+        <View style={styles.banner}>
+          <Text style={styles.bannerTitle}>Profile</Text>
         </View>
-        <View style={styles.centered}>
-          <Ionicons name="log-in-outline" size={40} color="#9E9E9E" />
-          <Text style={styles.emptyText}>Please log in to see your profile.</Text>
+        <View style={styles.notLoggedBody}>
+          <View style={styles.centered}>
+            <Ionicons name="log-in-outline" size={40} color="#9E9E9E" />
+            <Text style={styles.emptyText}>Please log in to see your profile.</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -118,11 +127,18 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-      </View>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 68 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Green header banner (inside the scroll so the avatar can overlap it) */}
+        <View style={styles.banner}>
+          <Text style={styles.bannerTitle}>Profile</Text>
+        </View>
 
-      <View style={styles.body}>
+        <View style={styles.content}>
+        {/* Avatar overlapping the banner */}
         <View style={styles.avatarWrap}>
           <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingPhoto} activeOpacity={0.85}>
             {user.profilePhotoUrl ? (
@@ -133,12 +149,12 @@ export default function ProfileScreen() {
               />
             ) : (
               <View style={styles.avatar}>
-                <Ionicons name="person" size={44} color={THEME.accent} />
+                <Ionicons name="person" size={44} color={colors.primary} />
               </View>
             )}
             {uploadingPhoto ? (
               <View style={styles.avatarOverlay}>
-                <ActivityIndicator color={THEME.white} size="small" />
+                <ActivityIndicator color={colors.white} size="small" />
               </View>
             ) : null}
           </TouchableOpacity>
@@ -149,7 +165,7 @@ export default function ProfileScreen() {
             accessibilityLabel="Change profile photo"
             accessibilityRole="button"
           >
-            <Ionicons name="camera" size={13} color={THEME.white} />
+            <Ionicons name="camera" size={13} color={colors.white} />
           </TouchableOpacity>
         </View>
 
@@ -158,35 +174,43 @@ export default function ProfileScreen() {
           <Text style={styles.rolePillText}>Buyer</Text>
         </View>
 
+        {/* Stat card */}
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{statLoading ? "–" : statCount}</Text>
           <Text style={styles.statLabel}>orders placed</Text>
         </View>
 
+        {/* Info card */}
         <View style={styles.infoCard}>
           <InfoRow icon="call-outline" value={user.phone} />
+          <View style={styles.infoDivider} />
           <InfoRow icon="mail-outline" value={user.email} />
+          <View style={styles.infoDivider} />
           <InfoRow icon="location-outline" value={user.city} />
+          <View style={styles.infoDivider} />
           <InfoRow icon="calendar-outline" value={`Member since ${formatMemberSince(user.createdAt)}`} />
         </View>
 
+        {/* History link */}
         <TouchableOpacity
           style={styles.historyRow}
           onPress={() => router.push("/order-history")}
           activeOpacity={0.7}
         >
           <View style={styles.historyLeft}>
-            <Ionicons name="time-outline" size={18} color={THEME.accent} />
+            <Ionicons name="time-outline" size={18} color={colors.primary} />
             <Text style={styles.historyText}>Order history</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color="#9E9E9E" />
         </TouchableOpacity>
 
+        {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
-          <Ionicons name="log-out-outline" size={18} color="#C62828" />
+          <Ionicons name="log-out-outline" size={18} color={colors.danger} />
           <Text style={styles.logoutText}>Log out</Text>
         </TouchableOpacity>
-      </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -194,22 +218,29 @@ export default function ProfileScreen() {
 function InfoRow({ icon, value }: { icon: keyof typeof Ionicons.glyphMap; value: string }) {
   return (
     <View style={styles.infoRow}>
-      <Ionicons name={icon} size={18} color={THEME.accent} />
+      <Ionicons name={icon} size={18} color={colors.primary} />
       <Text style={styles.infoValue}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: THEME.white },
-  header: {
+  safe: { flex: 1, backgroundColor: colors.primary },
+  scroll: { flex: 1, backgroundColor: colors.bg },
+  scrollContent: { paddingBottom: 32 },
+  content: { alignItems: "center", paddingHorizontal: 20 },
+  notLoggedBody: { flex: 1, backgroundColor: colors.bg },
+
+  // Green banner
+  banner: {
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E0E0E0",
-    backgroundColor: THEME.white,
+    paddingTop: 6,
+    paddingBottom: 52,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  headerTitle: { fontSize: 20, fontWeight: "800", color: THEME.deepGreen },
+  bannerTitle: { fontSize: 22, fontWeight: "800", color: colors.white },
 
   centered: {
     flex: 1,
@@ -218,11 +249,10 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 60,
   },
-  emptyText: { fontSize: 14, color: "#757575", textAlign: "center", paddingHorizontal: 32 },
+  emptyText: { fontSize: 14, color: colors.textMuted, textAlign: "center", paddingHorizontal: 32 },
 
-  body: { alignItems: "center", padding: 24 },
-
-  avatarWrap: { marginTop: 12 },
+  // Avatar (overlaps banner)
+  avatarWrap: { marginTop: -48 },
   avatar: {
     width: 96,
     height: 96,
@@ -230,12 +260,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5E9",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 4,
+    borderColor: colors.bg,
   },
   avatarImage: {
     width: 96,
     height: 96,
     borderRadius: 48,
     backgroundColor: "#E8F5E9",
+    borderWidth: 4,
+    borderColor: colors.bg,
   },
   avatarOverlay: {
     position: "absolute",
@@ -252,72 +286,84 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: -2,
     bottom: -2,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: THEME.accent,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.primary,
     borderWidth: 2,
-    borderColor: THEME.white,
+    borderColor: colors.bg,
     justifyContent: "center",
     alignItems: "center",
   },
 
-  name: { fontSize: 20, fontWeight: "800", color: THEME.deepGreen, marginTop: 14 },
+  name: { fontSize: 20, fontWeight: "800", color: colors.text, marginTop: 12 },
   rolePill: {
-    backgroundColor: THEME.bgLight,
+    backgroundColor: "#FDF3D8",
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    marginTop: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    marginTop: 8,
   },
-  rolePillText: { fontSize: 12, fontWeight: "700", color: THEME.accent },
+  rolePillText: { fontSize: 12, fontWeight: "800", color: colors.accentText, letterSpacing: 0.3 },
 
+  // Stat card (green)
   statCard: {
     alignSelf: "stretch",
-    backgroundColor: THEME.deepGreen,
+    backgroundColor: colors.primary,
     borderRadius: 16,
-    paddingVertical: 20,
+    paddingVertical: 22,
     alignItems: "center",
     marginTop: 22,
+    ...cardShadow,
   },
-  statValue: { fontSize: 28, fontWeight: "800", color: THEME.white },
-  statLabel: { fontSize: 13, color: "#A9C3B3", marginTop: 4 },
+  statValue: { fontSize: 30, fontWeight: "800", color: colors.white },
+  statLabel: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 4 },
 
+  // Info card
   infoCard: {
     alignSelf: "stretch",
-    backgroundColor: THEME.bgLight,
-    borderRadius: 14,
-    padding: 16,
-    gap: 14,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     marginTop: 16,
+    ...cardShadow,
   },
-  infoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  infoValue: { fontSize: 14, color: "#212121" },
+  infoRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
+  infoValue: { fontSize: 14, color: colors.text, flex: 1 },
+  infoDivider: { height: StyleSheet.hairlineWidth, backgroundColor: HAIRLINE },
 
+  // History row
   historyRow: {
     alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: THEME.bgLight,
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginTop: 12,
+    paddingVertical: 16,
+    marginTop: 14,
+    ...cardShadow,
   },
   historyLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  historyText: { fontSize: 14, fontWeight: "600", color: "#212121" },
+  historyText: { fontSize: 14, fontWeight: "700", color: colors.text },
 
+  // Logout
   logoutBtn: {
     alignSelf: "stretch",
-    marginTop: 24,
+    marginTop: 20,
     backgroundColor: "#FDECEA",
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 14,
+    paddingVertical: 15,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
   },
-  logoutText: { fontSize: 15, fontWeight: "700", color: "#C62828" },
+  logoutText: { fontSize: 15, fontWeight: "700", color: colors.danger },
 });

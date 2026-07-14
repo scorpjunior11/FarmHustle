@@ -12,7 +12,7 @@ import {
   TextInput,
   ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import {
@@ -30,13 +30,18 @@ import {
   Delivery,
 } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
+import { THEME } from "../../theme/theme";
 
-const THEME = {
-  deepGreen: "#1B3A2B",
-  accent: "#2F7A4D",
-  white: "#FFFFFF",
-  bgLight: "#F4F7F5",
-};
+const { colors } = THEME;
+const HAIRLINE = "#EEEEEE";
+
+const cardShadow = {
+  shadowColor: "#000000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 6,
+  elevation: 2,
+} as const;
 
 const STATUS_META: Record<OrderStatus, { label: string; bg: string; fg: string }> = {
   PENDING: { label: "Pending", bg: "#F5F5F5", fg: "#757575" },
@@ -52,6 +57,7 @@ const STATUS_META: Record<OrderStatus, { label: string; bg: string; fg: string }
 
 export default function OrdersScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState<Order[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
@@ -288,12 +294,14 @@ export default function OrdersScreen() {
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Orders</Text>
+        <View style={styles.banner}>
+          <Text style={styles.bannerTitle}>My Orders</Text>
         </View>
-        <View style={styles.centered}>
-          <Ionicons name="log-in-outline" size={40} color="#9E9E9E" />
-          <Text style={styles.emptyText}>Please log in to see your orders.</Text>
+        <View style={styles.body}>
+          <View style={styles.centered}>
+            <Ionicons name="log-in-outline" size={40} color="#9E9E9E" />
+            <Text style={styles.emptyText}>Please log in to see your orders.</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -301,65 +309,68 @@ export default function OrdersScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Orders</Text>
+      <View style={styles.banner}>
+        <Text style={styles.bannerTitle}>My Orders</Text>
+        <Text style={styles.bannerSubtitle}>Track and manage your purchases</Text>
       </View>
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={THEME.accent} />
-        </View>
-      ) : (
-        <FlatList
-          data={orders}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[THEME.accent]}
-              tintColor={THEME.accent}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.centered}>
-              <Ionicons name="receipt-outline" size={40} color="#9E9E9E" />
-              <Text style={styles.emptyText}>No orders yet.</Text>
-              <TouchableOpacity
-                style={styles.browseBtn}
-                onPress={() => router.navigate("/(buyer)")}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="leaf-outline" size={16} color={THEME.white} />
-                <Text style={styles.browseBtnText}>Browse crops</Text>
-              </TouchableOpacity>
-            </View>
-          }
-          renderItem={({ item }) => {
-            const delivery = deliveries.find((d) => d.order?.id === item.id) ?? null;
-            return (
-              <OrderCard
-                order={item}
-                delivery={delivery}
-                confirming={delivery !== null && confirmingDeliveryId === delivery.id}
-                canceling={delivery !== null && cancelingDeliveryId === delivery.id}
-                paying={payingOrderId === item.id}
-                payingFee={delivery !== null && payingDeliveryId === delivery.id}
-                acceptingFee={delivery !== null && acceptingFeeDeliveryId === delivery.id}
-                decliningFee={delivery !== null && decliningFeeDeliveryId === delivery.id}
-                onRequestTransport={() => openTransportModal(item)}
-                onConfirmReceived={() => delivery && handleConfirmReceived(delivery)}
-                onCancelDelivery={() => delivery && handleCancelDelivery(delivery)}
-                onPayNow={() => handlePayNow(item)}
-                onPayDeliveryFee={() => delivery && handlePayDeliveryFee(delivery)}
-                onAcceptFee={() => delivery && handleAcceptFee(delivery)}
-                onDeclineFee={() => delivery && handleDeclineFee(delivery)}
+      <View style={styles.body}>
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={orders}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
               />
-            );
-          }}
-        />
-      )}
+            }
+            ListEmptyComponent={
+              <View style={styles.centered}>
+                <Ionicons name="receipt-outline" size={44} color="#C8E6C9" />
+                <Text style={styles.emptyText}>No orders yet.</Text>
+                <TouchableOpacity
+                  style={styles.browseBtn}
+                  onPress={() => router.navigate("/(buyer)")}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="leaf-outline" size={16} color={colors.white} />
+                  <Text style={styles.browseBtnText}>Browse crops</Text>
+                </TouchableOpacity>
+              </View>
+            }
+            renderItem={({ item }) => {
+              const delivery = deliveries.find((d) => d.order?.id === item.id) ?? null;
+              return (
+                <OrderCard
+                  order={item}
+                  delivery={delivery}
+                  confirming={delivery !== null && confirmingDeliveryId === delivery.id}
+                  canceling={delivery !== null && cancelingDeliveryId === delivery.id}
+                  paying={payingOrderId === item.id}
+                  payingFee={delivery !== null && payingDeliveryId === delivery.id}
+                  acceptingFee={delivery !== null && acceptingFeeDeliveryId === delivery.id}
+                  decliningFee={delivery !== null && decliningFeeDeliveryId === delivery.id}
+                  onRequestTransport={() => openTransportModal(item)}
+                  onConfirmReceived={() => delivery && handleConfirmReceived(delivery)}
+                  onCancelDelivery={() => delivery && handleCancelDelivery(delivery)}
+                  onPayNow={() => handlePayNow(item)}
+                  onPayDeliveryFee={() => delivery && handlePayDeliveryFee(delivery)}
+                  onAcceptFee={() => delivery && handleAcceptFee(delivery)}
+                  onDeclineFee={() => delivery && handleDeclineFee(delivery)}
+                />
+              );
+            }}
+          />
+        )}
+      </View>
 
       {/* Request Transport Modal */}
       <Modal
@@ -367,7 +378,7 @@ export default function OrdersScreen() {
         animationType="slide"
         onRequestClose={closeTransportModal}
       >
-        <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+        <SafeAreaView style={styles.modalSafe} edges={["top", "bottom"]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Request Transport</Text>
             <TouchableOpacity
@@ -375,7 +386,7 @@ export default function OrdersScreen() {
               accessibilityLabel="Close"
               accessibilityRole="button"
             >
-              <Ionicons name="close" size={24} color={THEME.deepGreen} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -401,7 +412,7 @@ export default function OrdersScreen() {
             <TextInput
               style={styles.input}
               placeholder="e.g. Kumasi"
-              placeholderTextColor="#9E9E9E"
+              placeholderTextColor={colors.textMuted}
               value={pickupLocation}
               onChangeText={setPickupLocation}
               accessibilityLabel="Pickup point"
@@ -414,7 +425,7 @@ export default function OrdersScreen() {
             <TextInput
               style={styles.input}
               placeholder="e.g. Accra"
-              placeholderTextColor="#9E9E9E"
+              placeholderTextColor={colors.textMuted}
               value={deliveryLocation}
               onChangeText={setDeliveryLocation}
               accessibilityLabel="Destination"
@@ -432,10 +443,10 @@ export default function OrdersScreen() {
               activeOpacity={0.85}
             >
               {submitting ? (
-                <ActivityIndicator color={THEME.white} size="small" />
+                <ActivityIndicator color={colors.white} size="small" />
               ) : (
                 <>
-                  <Ionicons name="car-outline" size={18} color={THEME.white} />
+                  <Ionicons name="car-outline" size={18} color={colors.white} />
                   <Text style={styles.submitBtnText}>Post transport request</Text>
                 </>
               )}
@@ -555,10 +566,10 @@ function OrderCard({
           activeOpacity={0.85}
         >
           {paying ? (
-            <ActivityIndicator color={THEME.white} size="small" />
+            <ActivityIndicator color={colors.white} size="small" />
           ) : (
             <>
-              <Ionicons name="card-outline" size={16} color={THEME.white} />
+              <Ionicons name="card-outline" size={16} color={colors.white} />
               <Text style={styles.requestBtnText}>Pay now</Text>
             </>
           )}
@@ -571,7 +582,7 @@ function OrderCard({
           onPress={onRequestTransport}
           activeOpacity={0.85}
         >
-          <Ionicons name="car-outline" size={16} color={THEME.white} />
+          <Ionicons name="car-outline" size={16} color={colors.white} />
           <Text style={styles.requestBtnText}>Request transport</Text>
         </TouchableOpacity>
       ) : null}
@@ -593,10 +604,10 @@ function OrderCard({
           activeOpacity={0.85}
         >
           {payingFee ? (
-            <ActivityIndicator color={THEME.white} size="small" />
+            <ActivityIndicator color={colors.white} size="small" />
           ) : (
             <>
-              <Ionicons name="card-outline" size={16} color={THEME.white} />
+              <Ionicons name="card-outline" size={16} color={colors.white} />
               <Text style={styles.requestBtnText}>
                 Pay delivery fee — GHS {delivery.deliveryFee ?? 0}
               </Text>
@@ -605,7 +616,7 @@ function OrderCard({
         </TouchableOpacity>
       ) : delivery && delivery.feePaid === true ? (
         <View style={styles.feePaidRow}>
-          <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
+          <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
           <Text style={styles.feePaidText}>Delivery fee paid</Text>
         </View>
       ) : null}
@@ -619,10 +630,10 @@ function OrderCard({
             activeOpacity={0.85}
           >
             {decliningFee ? (
-              <ActivityIndicator color="#C62828" size="small" />
+              <ActivityIndicator color={colors.danger} size="small" />
             ) : (
               <>
-                <Ionicons name="close-outline" size={16} color="#C62828" />
+                <Ionicons name="close-outline" size={16} color={colors.danger} />
                 <Text style={styles.declineFeeBtnText}>Decline</Text>
               </>
             )}
@@ -634,10 +645,10 @@ function OrderCard({
             activeOpacity={0.85}
           >
             {acceptingFee ? (
-              <ActivityIndicator color={THEME.white} size="small" />
+              <ActivityIndicator color={colors.white} size="small" />
             ) : (
               <>
-                <Ionicons name="checkmark-outline" size={16} color={THEME.white} />
+                <Ionicons name="checkmark-outline" size={16} color={colors.white} />
                 <Text style={styles.requestBtnText}>Accept fee</Text>
               </>
             )}
@@ -653,7 +664,7 @@ function OrderCard({
           activeOpacity={0.7}
         >
           {canceling ? (
-            <ActivityIndicator color="#C62828" size="small" />
+            <ActivityIndicator color={colors.danger} size="small" />
           ) : (
             <Text style={styles.cancelLinkText}>Cancel request</Text>
           )}
@@ -668,17 +679,17 @@ function OrderCard({
           activeOpacity={0.85}
         >
           {confirming ? (
-            <ActivityIndicator color={THEME.white} size="small" />
+            <ActivityIndicator color={colors.white} size="small" />
           ) : (
             <>
-              <Ionicons name="checkmark-circle-outline" size={16} color={THEME.white} />
+              <Ionicons name="checkmark-circle-outline" size={16} color={colors.white} />
               <Text style={styles.requestBtnText}>Confirm received</Text>
             </>
           )}
         </TouchableOpacity>
       ) : waitingForProvider ? (
         <View style={styles.waitingRow}>
-          <Ionicons name="time-outline" size={16} color="#757575" />
+          <Ionicons name="time-outline" size={16} color={colors.textMuted} />
           <Text style={styles.waitingText}>Waiting for provider to confirm</Text>
         </View>
       ) : null}
@@ -687,43 +698,51 @@ function OrderCard({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: THEME.white },
-  header: {
+  safe: { flex: 1, backgroundColor: colors.primary },
+  body: { flex: 1, backgroundColor: colors.bg },
+
+  // Green banner header
+  banner: {
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E0E0E0",
-    backgroundColor: THEME.white,
+    paddingTop: 6,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  headerTitle: { fontSize: 20, fontWeight: "800", color: THEME.deepGreen },
+  bannerTitle: { fontSize: 22, fontWeight: "800", color: colors.white },
+  bannerSubtitle: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 4 },
 
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
     paddingTop: 60,
   },
-  emptyText: { fontSize: 14, color: "#757575", textAlign: "center", paddingHorizontal: 32 },
+  emptyText: { fontSize: 14, color: colors.textMuted, textAlign: "center", paddingHorizontal: 32 },
   browseBtn: {
-    marginTop: 8,
-    backgroundColor: THEME.accent,
-    borderRadius: 10,
+    marginTop: 4,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
     paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingVertical: 11,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  browseBtnText: { fontSize: 14, fontWeight: "700", color: THEME.white },
+  browseBtnText: { fontSize: 14, fontWeight: "700", color: colors.white },
 
   listContent: { padding: 16, flexGrow: 1 },
 
   card: {
-    backgroundColor: THEME.bgLight,
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 14,
+    ...cardShadow,
   },
   cardTopRow: {
     flexDirection: "row",
@@ -731,25 +750,25 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
-  productName: { flex: 1, fontSize: 16, fontWeight: "700", color: THEME.deepGreen },
+  productName: { flex: 1, fontSize: 16, fontWeight: "800", color: colors.text },
   badge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   badgeText: { fontSize: 11, fontWeight: "700" },
 
-  farmerText: { fontSize: 13, color: "#616161", marginTop: 4 },
-  metaText: { fontSize: 13, color: "#757575", marginTop: 6 },
-  priceText: { fontSize: 16, fontWeight: "700", color: THEME.accent, marginTop: 6 },
+  farmerText: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
+  metaText: { fontSize: 13, color: colors.textMuted, marginTop: 6 },
+  priceText: { fontSize: 18, fontWeight: "800", color: colors.primary, marginTop: 8 },
 
   requestBtn: {
     marginTop: 12,
-    backgroundColor: THEME.accent,
-    borderRadius: 10,
-    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
   },
-  requestBtnText: { fontSize: 13, fontWeight: "700", color: THEME.white },
+  requestBtnText: { fontSize: 13, fontWeight: "700", color: colors.white },
 
   transportRow: {
     marginTop: 12,
@@ -759,23 +778,23 @@ const styles = StyleSheet.create({
   },
   transportText: { fontSize: 13, fontWeight: "600" },
 
-  cancelLink: { marginTop: 8, alignSelf: "flex-start" },
-  cancelLinkText: { fontSize: 12, fontWeight: "700", color: "#C62828" },
+  cancelLink: { marginTop: 10, alignSelf: "flex-start" },
+  cancelLinkText: { fontSize: 12, fontWeight: "700", color: colors.danger },
 
   feePaidRow: {
-    marginTop: 8,
+    marginTop: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  feePaidText: { fontSize: 13, fontWeight: "600", color: "#2E7D32" },
+  feePaidText: { fontSize: 13, fontWeight: "700", color: colors.primary },
 
   feeDecisionRow: { flexDirection: "row", gap: 10, marginTop: 12 },
   acceptFeeBtn: {
     flex: 1,
-    backgroundColor: THEME.accent,
-    borderRadius: 10,
-    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -783,17 +802,17 @@ const styles = StyleSheet.create({
   },
   declineFeeBtn: {
     flex: 1,
-    backgroundColor: THEME.white,
+    backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: "#E57373",
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 12,
+    paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 6,
   },
-  declineFeeBtnText: { fontSize: 13, fontWeight: "700", color: "#C62828" },
+  declineFeeBtnText: { fontSize: 13, fontWeight: "700", color: colors.danger },
 
   waitingRow: {
     marginTop: 12,
@@ -803,62 +822,67 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
   },
-  waitingText: { fontSize: 13, fontWeight: "600", color: "#757575" },
+  waitingText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
 
+  // Modal
+  modalSafe: { flex: 1, backgroundColor: colors.bg },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 14,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E0E0E0",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: HAIRLINE,
   },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: THEME.deepGreen },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
   modalBody: { padding: 20, paddingBottom: 40 },
 
   summaryCard: {
-    backgroundColor: THEME.bgLight,
-    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
     padding: 14,
     marginBottom: 16,
     gap: 4,
+    ...cardShadow,
   },
-  summaryProduct: { fontSize: 15, fontWeight: "700", color: THEME.deepGreen },
-  summaryMeta: { fontSize: 13, color: "#616161" },
+  summaryProduct: { fontSize: 15, fontWeight: "800", color: colors.text },
+  summaryMeta: { fontSize: 13, color: colors.textMuted },
 
   label: {
     fontSize: 13,
     fontWeight: "700",
-    color: THEME.deepGreen,
+    color: colors.text,
     marginTop: 12,
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: HAIRLINE,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 14,
-    color: "#212121",
-    backgroundColor: THEME.white,
+    color: colors.text,
+    backgroundColor: colors.card,
   },
-  helperText: { fontSize: 11, color: "#9E9E9E", marginTop: 4 },
-  errorText: { fontSize: 13, color: "#D32F2F", marginTop: 12 },
+  helperText: { fontSize: 11, color: colors.textMuted, marginTop: 4 },
+  errorText: { fontSize: 13, color: colors.danger, marginTop: 12 },
 
   submitBtn: {
     marginTop: 20,
-    backgroundColor: THEME.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 15,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
   },
-  submitBtnText: { fontSize: 15, fontWeight: "700", color: THEME.white },
+  submitBtnText: { fontSize: 15, fontWeight: "700", color: colors.white },
   btnDisabled: { opacity: 0.65 },
   cancelBtn: { marginTop: 12, alignItems: "center", paddingVertical: 8 },
-  cancelBtnText: { fontSize: 14, fontWeight: "600", color: "#757575" },
+  cancelBtnText: { fontSize: 14, fontWeight: "600", color: colors.textMuted },
 });

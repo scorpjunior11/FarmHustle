@@ -20,29 +20,21 @@ import {
   Product,
 } from "../../../api/client";
 import { useAuth } from "../../../context/AuthContext";
+import { THEME } from "../../../theme/theme";
 
-const THEME = {
-  deepGreen: "#1B3A2B",
-  accent: "#2F7A4D",
-  white: "#FFFFFF",
-  bgLight: "#F4F7F5",
-};
+const { colors } = THEME;
+const HAIRLINE = "#EEEEEE";
+const PLACEHOLDER_BG = "#F2F4F2";
 
-const CATEGORY_BG: Record<string, string> = {
-  GRAINS: "#FFF8E1",
-  VEGETABLES: "#E8F5E9",
-  FRUITS: "#FCE4EC",
-  TUBERS: "#FFF3E0",
-  OTHER: "#F3E5F5",
-};
+const cardShadow = {
+  shadowColor: "#000000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 6,
+  elevation: 2,
+} as const;
 
-const CATEGORY_FG: Record<string, string> = {
-  GRAINS: "#F57F17",
-  VEGETABLES: "#2E7D32",
-  FRUITS: "#C62828",
-  TUBERS: "#E65100",
-  OTHER: "#6A1B9A",
-};
+const categoryLabel = (value: string) => value.charAt(0) + value.slice(1).toLowerCase();
 
 export default function ProductDetail() {
   const { user } = useAuth();
@@ -94,8 +86,8 @@ export default function ProductDetail() {
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <StatusBar barStyle="dark-content" backgroundColor={THEME.white} />
-        <ActivityIndicator size="large" color={THEME.accent} />
+        <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -103,7 +95,7 @@ export default function ProductDetail() {
   if (notFound || !product) {
     return (
       <SafeAreaView style={styles.centered}>
-        <StatusBar barStyle="dark-content" backgroundColor={THEME.white} />
+        <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
         <Ionicons name="alert-circle-outline" size={40} color="#9E9E9E" />
         <Text style={styles.notFoundText}>Product not found.</Text>
         <TouchableOpacity onPress={() => router.back()}>
@@ -115,93 +107,75 @@ export default function ProductDetail() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <StatusBar barStyle="dark-content" backgroundColor={THEME.white} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
-      {/* Nav bar with back button */}
-      <View style={styles.navBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={THEME.deepGreen} />
-        </TouchableOpacity>
-        <Text style={styles.navTitle} numberOfLines={1}>
-          Product Details
-        </Text>
-        <View style={styles.navSpacer} />
-      </View>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Hero image with floating back button + gold category tag */}
+        <View style={styles.heroWrap}>
+          {product.imageUrl ? (
+            <Image
+              source={{ uri: product.imageUrl }}
+              style={styles.heroImage}
+              resizeMode="cover"
+              accessibilityLabel={`Photo of ${product.name}`}
+            />
+          ) : (
+            <View style={[styles.heroImage, styles.imagePlaceholder]}>
+              <Ionicons name="leaf-outline" size={64} color="#C4CDC6" />
+            </View>
+          )}
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Hero image, falling back to the placeholder when there's no photo */}
-        {product.imageUrl ? (
-          <Image
-            source={{ uri: product.imageUrl }}
-            style={styles.heroImage}
-            resizeMode="cover"
-            accessibilityLabel={`Photo of ${product.name}`}
-          />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <Ionicons name="leaf" size={64} color={THEME.accent} />
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Go back">
+            <Ionicons name="arrow-back" size={22} color={colors.text} />
+          </TouchableOpacity>
+
+          <View style={styles.categoryTag}>
+            <Text style={styles.categoryTagText}>{categoryLabel(product.category)}</Text>
           </View>
-        )}
+        </View>
 
-        {/* Name + category chip */}
-        <View style={styles.nameRow}>
+        {/* Content sheet overlapping the hero */}
+        <View style={styles.sheet}>
           <Text style={styles.productName}>{product.name}</Text>
-          <View
-            style={[
-              styles.categoryChip,
-              { backgroundColor: CATEGORY_BG[product.category] ?? "#F5F5F5" },
-            ]}
-          >
-            <Text
-              style={[
-                styles.categoryText,
-                { color: CATEGORY_FG[product.category] ?? "#757575" },
-              ]}
-            >
-              {product.category}
+
+          {/* Price */}
+          <View style={styles.priceRow}>
+            <Text style={styles.priceText}>GHS {product.price}</Text>
+            <Text style={styles.priceUnit}> / {product.unit}</Text>
+          </View>
+
+          {/* Quantity */}
+          <View style={styles.metaRow}>
+            <Ionicons name="cube-outline" size={16} color={colors.primary} />
+            <Text style={styles.metaText}>
+              {product.quantityAvailable} {product.unit} available
             </Text>
           </View>
-        </View>
 
-        {/* Price */}
-        <Text style={styles.price}>
-          GHS {product.price} / {product.unit}
-        </Text>
+          {/* Description */}
+          {product.description ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Description</Text>
+              <Text style={styles.descriptionText}>{product.description}</Text>
+            </View>
+          ) : null}
 
-        {/* Quantity */}
-        <View style={styles.quantityRow}>
-          <Ionicons name="cube-outline" size={16} color={THEME.accent} />
-          <Text style={styles.quantityText}>
-            {product.quantityAvailable} {product.unit} available
-          </Text>
-        </View>
-
-        {/* Description */}
-        {product.description ? (
+          {/* Farmer */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <Text style={styles.descriptionText}>{product.description}</Text>
-          </View>
-        ) : null}
-
-        {/* Farmer section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Farmer</Text>
-          <View style={styles.farmerCard}>
-            <FarmerRow icon="person-outline" value={product.farmer.name} />
-            <FarmerRow icon="location-outline" value={product.farmer.city} />
-            <FarmerRow
-              icon="call-outline"
-              value={product.farmer.phone}
-              onPress={
-                product.farmer.phone
-                  ? () => Linking.openURL(`tel:${product.farmer.phone}`)
-                  : undefined
-              }
-            />
+            <Text style={styles.sectionTitle}>Farmer</Text>
+            <View style={styles.farmerCard}>
+              <FarmerRow icon="person-outline" value={product.farmer.name} />
+              <FarmerRow icon="location-outline" value={product.farmer.city} />
+              <FarmerRow
+                icon="call-outline"
+                value={product.farmer.phone}
+                onPress={
+                  product.farmer.phone
+                    ? () => Linking.openURL(`tel:${product.farmer.phone}`)
+                    : undefined
+                }
+              />
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -215,10 +189,10 @@ export default function ProductDetail() {
           activeOpacity={0.85}
         >
           {ordering ? (
-            <ActivityIndicator color={THEME.white} size="small" />
+            <ActivityIndicator color={colors.white} size="small" />
           ) : (
             <>
-              <Ionicons name="cart-outline" size={20} color={THEME.white} />
+              <Ionicons name="cart-outline" size={20} color={colors.white} />
               <Text style={styles.buyBtnText}>Buy this listing</Text>
             </>
           )}
@@ -244,123 +218,115 @@ function FarmerRow({
       disabled={!onPress}
       activeOpacity={onPress ? 0.7 : 1}
     >
-      <Ionicons name={icon} size={16} color={THEME.accent} />
+      <Ionicons name={icon} size={16} color={colors.primary} />
       <Text style={[styles.farmerValue, onPress && styles.farmerValueLink]}>{value}</Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: THEME.white },
+  safe: { flex: 1, backgroundColor: colors.bg },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: THEME.white,
+    backgroundColor: colors.bg,
     gap: 12,
   },
-
-  navBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E0E0E0",
-    backgroundColor: THEME.white,
-  },
-  backBtn: { padding: 4 },
-  navTitle: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 16,
-    fontWeight: "700",
-    color: THEME.deepGreen,
-  },
-  navSpacer: { width: 30 },
 
   scroll: { paddingBottom: 24 },
 
-  imagePlaceholder: {
-    height: 220,
-    backgroundColor: "#E8F5E9",
+  // Hero
+  heroWrap: { position: "relative" },
+  heroImage: {
+    height: 280,
+    width: "100%",
+    backgroundColor: PLACEHOLDER_BG,
+  },
+  imagePlaceholder: { justifyContent: "center", alignItems: "center" },
+  backBtn: {
+    position: "absolute",
+    top: 12,
+    left: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255,255,255,0.92)",
     justifyContent: "center",
     alignItems: "center",
+    ...cardShadow,
   },
-  heroImage: {
-    height: 220,
-    width: "100%",
-    backgroundColor: "#E8F5E9",
-  },
-
-  nameRow: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  productName: {
-    flex: 1,
-    fontSize: 22,
-    fontWeight: "800",
-    color: THEME.deepGreen,
-  },
-  categoryChip: {
-    borderRadius: 20,
+  categoryTag: {
+    position: "absolute",
+    top: 18,
+    right: 16,
+    backgroundColor: colors.accent,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    alignSelf: "flex-start",
   },
-  categoryText: { fontSize: 12, fontWeight: "700" },
+  categoryTagText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.accentText,
+    letterSpacing: 0.3,
+  },
 
-  price: {
+  // Content sheet
+  sheet: {
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
     paddingHorizontal: 20,
-    paddingTop: 8,
-    fontSize: 20,
-    fontWeight: "700",
-    color: THEME.accent,
+    paddingTop: 22,
+  },
+  productName: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.3,
   },
 
-  quantityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 6,
-    gap: 6,
-  },
-  quantityText: { fontSize: 14, color: "#757575" },
+  priceRow: { flexDirection: "row", alignItems: "baseline", marginTop: 10 },
+  priceText: { fontSize: 24, fontWeight: "800", color: colors.primary },
+  priceUnit: { fontSize: 14, fontWeight: "600", color: colors.textMuted },
 
-  section: { paddingHorizontal: 20, paddingTop: 24 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 },
+  metaText: { fontSize: 14, color: colors.textMuted },
+
+  section: { paddingTop: 24 },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: THEME.deepGreen,
-    marginBottom: 8,
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.text,
+    marginBottom: 10,
   },
   descriptionText: { fontSize: 14, color: "#424242", lineHeight: 21 },
 
   farmerCard: {
-    backgroundColor: THEME.bgLight,
-    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
     padding: 14,
-    gap: 10,
+    gap: 12,
+    ...cardShadow,
   },
   farmerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  farmerValue: { fontSize: 14, color: "#212121" },
-  farmerValueLink: { color: THEME.accent, fontWeight: "600" },
+  farmerValue: { fontSize: 14, color: colors.text },
+  farmerValueLink: { color: colors.primary, fontWeight: "600" },
 
   bottomBar: {
     paddingHorizontal: 20,
     paddingVertical: 14,
-    borderTopWidth: 0.5,
-    borderTopColor: "#E0E0E0",
-    backgroundColor: THEME.white,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: HAIRLINE,
+    backgroundColor: colors.bg,
   },
   buyBtn: {
-    backgroundColor: THEME.accent,
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
     paddingVertical: 16,
     flexDirection: "row",
     justifyContent: "center",
@@ -368,8 +334,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   buyBtnDisabled: { opacity: 0.65 },
-  buyBtnText: { fontSize: 16, fontWeight: "700", color: THEME.white },
+  buyBtnText: { fontSize: 16, fontWeight: "700", color: colors.white },
 
   notFoundText: { fontSize: 16, color: "#757575" },
-  backLink: { fontSize: 14, color: THEME.accent, fontWeight: "600" },
+  backLink: { fontSize: 14, color: colors.primary, fontWeight: "600" },
 });

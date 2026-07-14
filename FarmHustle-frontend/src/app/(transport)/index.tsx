@@ -11,7 +11,7 @@ import {
   Modal,
   TextInput,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { getDeliveries, acceptDelivery, Delivery } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
@@ -25,6 +25,7 @@ const THEME = {
 
 export default function DeliveryJobsScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -122,7 +123,7 @@ export default function DeliveryJobsScreen() {
         <FlatList
           data={openJobs}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 68 }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
