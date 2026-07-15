@@ -1,4 +1,4 @@
-const BASE_URL = "http://192.168.2.95:8080";
+const BASE_URL = "https://farmhustle.onrender.com";
 
 // ─── Auth token attachment ─────────────────────────────────
 // Module-level so every call in this file can see the latest token without
