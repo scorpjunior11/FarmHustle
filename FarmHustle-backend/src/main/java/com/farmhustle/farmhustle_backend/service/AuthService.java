@@ -6,15 +6,23 @@ import com.farmhustle.farmhustle_backend.repository.UserRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+
 @Service
 public class AuthService {
 
+    private static final long VERIFICATION_CODE_VALIDITY_MINUTES = 15;
+
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final EmailService emailService;
+    private final SecureRandom secureRandom = new SecureRandom();
 
-    public AuthService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
     }
 
     public User signup(String name, String email, String phone, String rawPassword, Role role, String city) {
@@ -32,7 +40,11 @@ public class AuthService {
         user.setRole(role);
         user.setCity(city);
         user.setIsActive(true);
-        return userRepository.save(user);
+        user.setEmailVerified(false);
+        assignNewVerificationCode(user);
+        user = userRepository.save(user);
+        emailService.sendVerificationCode(user.getEmail(), user.getVerificationCode());
+        return user;
     }
 
     public User login(String email, String rawPassword) {
@@ -42,5 +54,34 @@ public class AuthService {
             throw new RuntimeException("Invalid email or password");
         }
         return user;
+    }
+
+    public User verifyEmail(String email, String code) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Invalid or expired code"));
+        if (user.getVerificationCode() == null
+                || !user.getVerificationCode().equals(code)
+                || user.getVerificationCodeExpiry() == null
+                || user.getVerificationCodeExpiry().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Invalid or expired code");
+        }
+        user.setEmailVerified(true);
+        user.setVerificationCode(null);
+        user.setVerificationCodeExpiry(null);
+        return userRepository.save(user);
+    }
+
+    public void resendVerificationCode(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("No account found with this email."));
+        assignNewVerificationCode(user);
+        userRepository.save(user);
+        emailService.sendVerificationCode(user.getEmail(), user.getVerificationCode());
+    }
+
+    private void assignNewVerificationCode(User user) {
+        String code = String.format("%06d", secureRandom.nextInt(1_000_000));
+        user.setVerificationCode(code);
+        user.setVerificationCodeExpiry(LocalDateTime.now().plusMinutes(VERIFICATION_CODE_VALIDITY_MINUTES));
     }
 }

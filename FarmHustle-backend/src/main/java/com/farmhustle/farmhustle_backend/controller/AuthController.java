@@ -31,8 +31,7 @@ public class AuthController {
     public ResponseEntity<?> signup(@Valid @RequestBody SignupRequest body) {
         try {
             User user = authService.signup(body.name(), body.email(), body.phone(), body.password(), body.role(), body.city());
-            String token = jwtService.generateToken(user);
-            return ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(token, user));
+            return ResponseEntity.status(HttpStatus.CREATED).body(new SignupResponse("Verification code sent", user.getEmail()));
         } catch (DataIntegrityViolationException e) {
             throw e;
         } catch (RuntimeException e) {
@@ -51,6 +50,27 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestBody VerifyEmailRequest body) {
+        try {
+            User user = authService.verifyEmail(body.email(), body.code());
+            String token = jwtService.generateToken(user);
+            return ResponseEntity.ok(new AuthResponse(token, user));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body("Invalid or expired code");
+        }
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?> resendVerification(@RequestBody ResendVerificationRequest body) {
+        try {
+            authService.resendVerificationCode(body.email());
+            return ResponseEntity.ok(new SignupResponse("Verification code sent", body.email()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     private record SignupRequest(
             @NotBlank String name,
             @NotBlank @Email String email,
@@ -59,5 +79,8 @@ public class AuthController {
             @NotNull Role role,
             @NotBlank String city) {}
     private record LoginRequest(String email, String password) {}
+    private record VerifyEmailRequest(String email, String code) {}
+    private record ResendVerificationRequest(String email) {}
     private record AuthResponse(String token, User user) {}
+    private record SignupResponse(String message, String email) {}
 }

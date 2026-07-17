@@ -441,9 +441,11 @@ export default function FarmerScreen() {
       {/* Green header banner */}
       <View style={s.banner}>
         <View style={s.brandRow}>
-          <View style={s.brandMark}>
-            <Ionicons name="leaf" size={17} color={colors.accent} />
-          </View>
+          <Image
+            source={require('../../../assets/images/farmhustle-mark.png')}
+            style={s.brandMark}
+            resizeMode="contain"
+          />
           <Text style={s.wordmark}>
             Farm<Text style={s.wordmarkAccent}>Hustle</Text>
           </Text>
@@ -686,10 +688,8 @@ const s = StyleSheet.create({
   },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   brandMark: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },

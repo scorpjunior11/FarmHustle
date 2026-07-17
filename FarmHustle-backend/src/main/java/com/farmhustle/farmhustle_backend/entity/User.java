@@ -54,6 +54,16 @@ public class User {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private Boolean emailVerified = false;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column
+    private String verificationCode;
+
+    @Column
+    private LocalDateTime verificationCodeExpiry;
+
     public UUID getId() {
         return id;
     }
@@ -132,6 +142,30 @@ public class User {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Boolean getEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(Boolean emailVerified) {
+        this.emailVerified = emailVerified;
+    }
+
+    public String getVerificationCode() {
+        return verificationCode;
+    }
+
+    public void setVerificationCode(String verificationCode) {
+        this.verificationCode = verificationCode;
+    }
+
+    public LocalDateTime getVerificationCodeExpiry() {
+        return verificationCodeExpiry;
+    }
+
+    public void setVerificationCodeExpiry(LocalDateTime verificationCodeExpiry) {
+        this.verificationCodeExpiry = verificationCodeExpiry;
     }
 
 }

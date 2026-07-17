@@ -65,7 +65,7 @@ public class SecurityConfig {
             .sessionManagement(session ->
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                    .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/signup").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/signup", "/api/auth/verify-email", "/api/auth/resend-verification").permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .anyRequest().authenticated())
             .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {

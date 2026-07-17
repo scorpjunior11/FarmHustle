@@ -215,9 +215,11 @@ export default function BuyerHome() {
             {/* ── Green header banner ── */}
             <View style={styles.banner}>
               <View style={styles.brandRow}>
-                <View style={styles.brandMark}>
-                  <Ionicons name="leaf" size={16} color={colors.accent} />
-                </View>
+                <Image
+                  source={require("../../../assets/images/farmhustle-mark.png")}
+                  style={styles.brandMark}
+                  resizeMode="contain"
+                />
                 <Text style={styles.wordmark}>
                   Farm<Text style={styles.wordmarkAccent}>Hustle</Text>
                 </Text>
@@ -316,10 +318,8 @@ const styles = StyleSheet.create({
   },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   brandMark: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    width: 44,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
   },

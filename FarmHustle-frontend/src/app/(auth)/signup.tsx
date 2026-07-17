@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   StatusBar,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -87,9 +88,11 @@ export default function SignupScreen() {
       {/* Green banner */}
       <View style={styles.banner}>
         <View style={styles.brandRow}>
-          <View style={styles.brandMark}>
-            <Ionicons name="leaf" size={18} color={colors.accent} />
-          </View>
+          <Image
+            source={require("../../../assets/images/farmhustle-mark.png")}
+            style={styles.brandMark}
+            resizeMode="contain"
+          />
           <Text style={styles.wordmark}>
             Farm<Text style={styles.wordmarkAccent}>Hustle</Text>
           </Text>
@@ -272,10 +275,8 @@ const styles = StyleSheet.create({
   },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 },
   brandMark: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    width: 64,
+    height: 64,
     justifyContent: "center",
     alignItems: "center",
   },
