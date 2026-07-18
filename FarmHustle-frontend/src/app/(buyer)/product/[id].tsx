@@ -12,7 +12,7 @@ import {
   Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, router } from "expo-router";
 import {
   getProducts,
@@ -197,7 +197,7 @@ export default function ProductDetail() {
 
           {/* Quantity */}
           <View style={styles.metaRow}>
-            <Ionicons name="cube-outline" size={16} color={colors.primary} />
+            <MaterialCommunityIcons name="sack" size={16} color={colors.primary} />
             <Text style={styles.metaText}>
               {product.quantityAvailable} {product.unit} available
             </Text>

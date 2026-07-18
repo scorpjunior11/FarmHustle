@@ -14,7 +14,7 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { getActiveProducts, getActiveOrderProductIds, Product } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
@@ -37,21 +37,22 @@ const cardShadow = {
   elevation: 2,
 } as const;
 
-// Category values match Product["category"] in client.ts. Icons chosen to look
-// intentional & consistent (all verified against Ionicons.glyphMap via the typed key).
+// Category values match Product["category"] in client.ts. Icons use
+// MaterialCommunityIcons for genuine agricultural glyphs (verified against
+// MaterialCommunityIcons.glyphMap via the typed key).
 type CategoryItem = {
   value: Product["category"] | null;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
 };
 
 const CATEGORY_ITEMS: CategoryItem[] = [
-  { value: null, icon: "grid-outline", label: "All" },
-  { value: "GRAINS", icon: "basket-outline", label: "Grains" },
-  { value: "VEGETABLES", icon: "leaf-outline", label: "Vegetables" },
-  { value: "FRUITS", icon: "flower-outline", label: "Fruits" },
-  { value: "TUBERS", icon: "nutrition-outline", label: "Tubers" },
-  { value: "OTHER", icon: "apps-outline", label: "Other" },
+  { value: null, icon: "view-grid", label: "All" },
+  { value: "GRAINS", icon: "barley", label: "Grains" },
+  { value: "VEGETABLES", icon: "leaf", label: "Vegetables" },
+  { value: "FRUITS", icon: "food-apple", label: "Fruits" },
+  { value: "TUBERS", icon: "carrot", label: "Tubers" },
+  { value: "OTHER", icon: "dots-horizontal-circle", label: "Other" },
 ];
 
 const categoryLabel = (value: Product["category"]) =>
@@ -107,9 +108,12 @@ const CropCard = ({
       <Text style={styles.cropName} numberOfLines={1}>
         {item.name}
       </Text>
-      <Text style={styles.farmerName} numberOfLines={1}>
-        Farmer: {item.farmer.name}
-      </Text>
+      <View style={styles.farmerRow}>
+        <Ionicons name="person-outline" size={12} color={colors.primary} />
+        <Text style={styles.farmerName} numberOfLines={1}>
+          {item.farmer.name}
+        </Text>
+      </View>
 
       <View style={styles.metaRow}>
         <Ionicons name="location-outline" size={12} color={colors.textMuted} />
@@ -118,7 +122,7 @@ const CropCard = ({
         </Text>
       </View>
       <View style={styles.metaRow}>
-        <Ionicons name="cube-outline" size={12} color={colors.textMuted} />
+        <MaterialCommunityIcons name="sack" size={12} color={colors.textMuted} />
         <Text style={styles.metaText} numberOfLines={1}>
           {item.quantityAvailable} {item.unit}
         </Text>
@@ -284,7 +288,7 @@ export default function BuyerHome() {
                     onPress={() => setSelectedCategory(cat.value)}
                     activeOpacity={0.85}
                   >
-                    <Ionicons
+                    <MaterialCommunityIcons
                       name={cat.icon}
                       size={16}
                       color={isSelected ? colors.white : colors.primary}
@@ -479,7 +483,8 @@ const styles = StyleSheet.create({
   },
   cardBody: { padding: 10 },
   cropName: { fontSize: 14, fontWeight: "700", color: colors.text },
-  farmerName: { fontSize: 11, fontWeight: "600", color: colors.primary, marginTop: 2 },
+  farmerRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  farmerName: { fontSize: 11, fontWeight: "600", color: colors.primary },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
   metaText: { flex: 1, fontSize: 11, color: colors.textMuted },
 

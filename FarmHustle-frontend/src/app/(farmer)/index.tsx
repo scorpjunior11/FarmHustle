@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { createProduct, getProducts, deactivateProduct, reactivateProduct, deleteProduct, updateProductDetails, Product } from '../../api/client';
 import { uploadImageToCloudinary } from '../../api/uploadImage';
@@ -127,7 +127,7 @@ function ListingCard({
         </View>
 
         <View style={cardStyles.metaRow}>
-          <Ionicons name="cube-outline" size={13} color={colors.textMuted} />
+          <MaterialCommunityIcons name="sack" size={13} color={colors.textMuted} />
           <Text style={cardStyles.metaText}>
             {product.quantityAvailable} {product.unit} available
           </Text>
@@ -831,8 +831,8 @@ const s = StyleSheet.create({
   },
   wordmark: { fontSize: 18, fontWeight: '800', color: colors.white, letterSpacing: 0.2 },
   wordmarkAccent: { color: colors.accent },
-  bannerHeading: { fontSize: 22, fontWeight: '800', color: colors.white },
-  bannerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 3 },
+  bannerHeading: { fontSize: 18, fontWeight: '800', color: colors.white },
+  bannerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
 
   scroll: { flex: 1, backgroundColor: colors.bg },
   scrollContent: { paddingTop: 16, flexGrow: 1 },

@@ -9,6 +9,7 @@ import {
   Alert,
   TouchableOpacity,
   Linking,
+  Image,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -133,6 +134,16 @@ export default function ActiveDeliveriesScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.banner}>
+          <View style={styles.brandRow}>
+            <Image
+              source={require("../../../assets/images/farmhustle-mark.png")}
+              style={styles.brandMark}
+              resizeMode="contain"
+            />
+            <Text style={styles.wordmark}>
+              Farm<Text style={styles.wordmarkAccent}>Hustle</Text>
+            </Text>
+          </View>
           <Text style={styles.bannerTitle}>Active Deliveries</Text>
         </View>
         <View style={styles.body}>
@@ -149,6 +160,16 @@ export default function ActiveDeliveriesScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.banner}>
+        <View style={styles.brandRow}>
+          <Image
+            source={require("../../../assets/images/farmhustle-mark.png")}
+            style={styles.brandMark}
+            resizeMode="contain"
+          />
+          <Text style={styles.wordmark}>
+            Farm<Text style={styles.wordmarkAccent}>Hustle</Text>
+          </Text>
+        </View>
         <Text style={styles.bannerTitle}>Active Deliveries</Text>
         <Text style={styles.bannerSubtitle}>Track and complete your jobs</Text>
       </View>
@@ -313,6 +334,10 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  brandMark: { width: 48, height: 48, justifyContent: "center", alignItems: "center" },
+  wordmark: { fontSize: 18, fontWeight: "800", color: colors.white, letterSpacing: 0.2 },
+  wordmarkAccent: { color: colors.accent },
   bannerTitle: { fontSize: 22, fontWeight: "800", color: colors.white },
   bannerSubtitle: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 4 },
 

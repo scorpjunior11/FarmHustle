@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -66,6 +67,16 @@ export default function TransportEarningsScreen() {
 
   const Banner = () => (
     <View style={styles.banner}>
+      <View style={styles.brandRow}>
+        <Image
+          source={require("../../../assets/images/farmhustle-mark.png")}
+          style={styles.brandMark}
+          resizeMode="contain"
+        />
+        <Text style={styles.wordmark}>
+          Farm<Text style={styles.wordmarkAccent}>Hustle</Text>
+        </Text>
+      </View>
       <View style={styles.bannerTopRow}>
         <Text style={styles.bannerLabel}>Total earned</Text>
         <View style={styles.goldChip}>
@@ -171,6 +182,10 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  brandMark: { width: 48, height: 48, justifyContent: "center", alignItems: "center" },
+  wordmark: { fontSize: 18, fontWeight: "800", color: colors.white, letterSpacing: 0.2 },
+  wordmarkAccent: { color: colors.accent },
   bannerTopRow: {
     flexDirection: "row",
     alignItems: "center",
