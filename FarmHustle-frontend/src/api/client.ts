@@ -425,6 +425,7 @@ export async function updateProfilePhoto(userId: string, profilePhotoUrl: string
 }
 
 export type AuthResponse = { token: string; user: AuthUser };
+export type SignupResponse = { message: string; email: string };
 
 export async function signup(data: {
   name: string;
@@ -433,7 +434,7 @@ export async function signup(data: {
   password: string;
   role: string;
   city: string;
-}): Promise<AuthResponse> {
+}): Promise<SignupResponse> {
   const response = await authFetch(`${BASE_URL}/api/auth/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -445,7 +446,7 @@ export async function signup(data: {
     throw new Error(message || "Signup failed");
   }
 
-  return response.json() as Promise<AuthResponse>;
+  return response.json() as Promise<SignupResponse>;
 }
 
 export async function login(data: { email: string; password: string }): Promise<AuthResponse> {
@@ -461,4 +462,34 @@ export async function login(data: { email: string; password: string }): Promise<
   }
 
   return response.json() as Promise<AuthResponse>;
+}
+
+export async function verifyEmail(email: string, code: string): Promise<AuthResponse> {
+  const response = await authFetch(`${BASE_URL}/api/auth/verify-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Invalid or expired code");
+  }
+
+  return response.json() as Promise<AuthResponse>;
+}
+
+export async function resendVerification(email: string): Promise<SignupResponse> {
+  const response = await authFetch(`${BASE_URL}/api/auth/resend-verification`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Could not resend the code");
+  }
+
+  return response.json() as Promise<SignupResponse>;
 }

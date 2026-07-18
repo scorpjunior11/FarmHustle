@@ -7,7 +7,6 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
   StatusBar,
   Image,
 } from "react-native";
@@ -69,9 +68,7 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       await signup({ name: name.trim(), email: email.trim(), phone: phone.trim(), password, role, city: city.trim() });
-      Alert.alert("Account created!", "You can now log in.", [
-        { text: "Log in", onPress: () => router.replace("/login") },
-      ]);
+      router.replace({ pathname: "/verify-email", params: { email: email.trim() } });
     } catch (err: unknown) {
       console.error("Signup failed:", err);
       const message = err instanceof Error ? err.message.replace(/^\d{3}:\s*/, "").trim() : "";
