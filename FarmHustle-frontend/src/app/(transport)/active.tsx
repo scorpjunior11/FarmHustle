@@ -173,7 +173,7 @@ export default function ActiveDeliveriesScreen() {
             }
             ListEmptyComponent={
               <EmptyState
-                icon="cube-outline"
+                icon="car-outline"
                 title="No active deliveries"
                 subtitle="Jobs you accept will appear here to track and complete."
               />
@@ -255,7 +255,7 @@ function DeliveryCard({
 
       {delivery.status === "FEE_PROPOSED" ? (
         <View style={styles.waitingRow}>
-          <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+          <Ionicons name="hourglass-outline" size={16} color={colors.textMuted} />
           <Text style={styles.waitingText}>Waiting for buyer to accept fee</Text>
         </View>
       ) : delivery.status === "ACCEPTED" ? (
@@ -276,7 +276,7 @@ function DeliveryCard({
         </TouchableOpacity>
       ) : waitingForBuyer ? (
         <View style={styles.waitingRow}>
-          <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+          <Ionicons name="hourglass-outline" size={16} color={colors.textMuted} />
           <Text style={styles.waitingText}>Waiting for buyer to confirm</Text>
         </View>
       ) : delivery.status === "IN_TRANSIT" ? (

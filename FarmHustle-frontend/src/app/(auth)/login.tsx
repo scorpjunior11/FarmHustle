@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Image,
+  ImageBackground,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -78,8 +79,14 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* Green banner with brand + welcome */}
-      <View style={styles.banner}>
+      {/* Banner: crop photo background under a green overlay, with brand + welcome */}
+      <ImageBackground
+        source={require("../../../assets/images/auth-bg.jpeg")}
+        style={styles.banner}
+        imageStyle={styles.bannerImage}
+        resizeMode="cover"
+      >
+        <View style={styles.bannerOverlay} />
         <View style={styles.brandRow}>
           <Image
             source={require("../../../assets/images/farmhustle-mark.png")}
@@ -92,7 +99,7 @@ export default function LoginScreen() {
         </View>
         <Text style={styles.heading}>Welcome back</Text>
         <Text style={styles.subheading}>Log in to your account</Text>
-      </View>
+      </ImageBackground>
 
       {/* White form area */}
       <View style={styles.body}>
@@ -185,7 +192,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.primary },
 
-  // Green banner
+  // Banner: crop photo + green overlay
   banner: {
     backgroundColor: colors.primary,
     paddingHorizontal: 24,
@@ -193,6 +200,20 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
+    overflow: "hidden",
+  },
+  bannerImage: {
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  bannerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.primary,
+    opacity: 0.78,
   },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 26 },
   brandMark: {

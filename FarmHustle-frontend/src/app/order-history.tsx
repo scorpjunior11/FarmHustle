@@ -104,7 +104,7 @@ export default function OrderHistoryScreen() {
           }
           ListEmptyComponent={
             <View style={styles.centered}>
-              <Ionicons name="time-outline" size={40} color="#9E9E9E" />
+              <Ionicons name="receipt-outline" size={40} color="#9E9E9E" />
               <Text style={styles.emptyText}>No history yet.</Text>
             </View>
           }

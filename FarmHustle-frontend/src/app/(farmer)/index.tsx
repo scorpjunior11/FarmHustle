@@ -94,7 +94,7 @@ function ListingCard({
               accessibilityLabel={`Remove ${product.name}`}
               accessibilityRole="button"
             >
-              <Ionicons name="trash-outline" size={16} color={colors.danger} />
+              <Ionicons name="eye-off-outline" size={16} color={colors.danger} />
             </TouchableOpacity>
           )
         ) : null}

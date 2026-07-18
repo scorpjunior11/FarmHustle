@@ -668,7 +668,7 @@ function OrderCard({
         </TouchableOpacity>
       ) : delivery && delivery.feePaid === true ? (
         <View style={styles.feePaidRow}>
-          <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+          <Ionicons name="checkmark-circle-outline" size={16} color={colors.primary} />
           <Text style={styles.feePaidText}>Delivery fee paid</Text>
         </View>
       ) : null}
@@ -741,7 +741,7 @@ function OrderCard({
         </TouchableOpacity>
       ) : waitingForProvider ? (
         <View style={styles.waitingRow}>
-          <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+          <Ionicons name="hourglass-outline" size={16} color={colors.textMuted} />
           <Text style={styles.waitingText}>Waiting for provider to confirm</Text>
         </View>
       ) : null}

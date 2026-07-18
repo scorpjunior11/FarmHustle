@@ -50,7 +50,7 @@ export default function FarmerLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
+            <Ionicons name={focused ? "leaf" : "leaf-outline"} size={24} color={color} />
           ),
         }}
       />

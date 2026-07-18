@@ -47,10 +47,10 @@ type CategoryItem = {
 
 const CATEGORY_ITEMS: CategoryItem[] = [
   { value: null, icon: "grid-outline", label: "All" },
-  { value: "GRAINS", icon: "flower-outline", label: "Grains" },
+  { value: "GRAINS", icon: "basket-outline", label: "Grains" },
   { value: "VEGETABLES", icon: "leaf-outline", label: "Vegetables" },
-  { value: "FRUITS", icon: "nutrition-outline", label: "Fruits" },
-  { value: "TUBERS", icon: "earth-outline", label: "Tubers" },
+  { value: "FRUITS", icon: "flower-outline", label: "Fruits" },
+  { value: "TUBERS", icon: "nutrition-outline", label: "Tubers" },
   { value: "OTHER", icon: "apps-outline", label: "Other" },
 ];
 
