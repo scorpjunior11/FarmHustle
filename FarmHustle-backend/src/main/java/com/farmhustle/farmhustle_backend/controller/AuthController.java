@@ -2,6 +2,7 @@ package com.farmhustle.farmhustle_backend.controller;
 
 import com.farmhustle.farmhustle_backend.entity.Role;
 import com.farmhustle.farmhustle_backend.entity.User;
+import com.farmhustle.farmhustle_backend.exception.EmailNotVerifiedException;
 import com.farmhustle.farmhustle_backend.service.AuthService;
 import com.farmhustle.farmhustle_backend.service.JwtService;
 import jakarta.validation.Valid;
@@ -45,6 +46,9 @@ public class AuthController {
             User user = authService.login(body.email(), body.password());
             String token = jwtService.generateToken(user);
             return ResponseEntity.ok(new AuthResponse(token, user));
+        } catch (EmailNotVerifiedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new EmailNotVerifiedResponse("EMAIL_NOT_VERIFIED", e.getMessage(), e.getEmail()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -83,4 +87,5 @@ public class AuthController {
     private record ResendVerificationRequest(String email) {}
     private record AuthResponse(String token, User user) {}
     private record SignupResponse(String message, String email) {}
+    private record EmailNotVerifiedResponse(String error, String message, String email) {}
 }

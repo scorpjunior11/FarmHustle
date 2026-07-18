@@ -2,6 +2,7 @@ package com.farmhustle.farmhustle_backend.service;
 
 import com.farmhustle.farmhustle_backend.entity.Role;
 import com.farmhustle.farmhustle_backend.entity.User;
+import com.farmhustle.farmhustle_backend.exception.EmailNotVerifiedException;
 import com.farmhustle.farmhustle_backend.repository.UserRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -52,6 +53,9 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("Invalid email or password"));
         if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
             throw new RuntimeException("Invalid email or password");
+        }
+        if (!Boolean.TRUE.equals(user.getEmailVerified())) {
+            throw new EmailNotVerifiedException(user.getEmail());
         }
         return user;
     }
