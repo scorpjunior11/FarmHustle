@@ -81,6 +81,22 @@ export async function reactivateProduct(productId: string): Promise<Product> {
   return response.json() as Promise<Product>;
 }
 
+export async function updateProductDetails(
+  productId: string,
+  data: { price: number; quantityAvailable: number }
+): Promise<Product> {
+  const response = await authFetch(`${BASE_URL}/api/products/${productId}/details`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ price: data.price, quantityAvailable: data.quantityAvailable }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<Product>;
+}
+
 export async function deleteProduct(productId: string): Promise<void> {
   const response = await authFetch(`${BASE_URL}/api/products/${productId}`, {
     method: "DELETE",
@@ -244,12 +260,7 @@ export type Delivery = {
   deliveryFee: number | null;
   commissionAmount: number | null;
   provider: AuthUser | null;
-  order: {
-    id: string;
-    quantity: number;
-    buyer?: { name: string; phone?: string } | null;
-    product?: { name: string; unit: string } | null;
-  } | null;
+  order: Order | null;
   providerConfirmed: boolean;
   buyerConfirmed: boolean;
   feePaid: boolean;

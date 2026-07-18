@@ -44,8 +44,27 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [ordering, setOrdering] = useState(false);
+  const [qty, setQty] = useState(1);
   const [activeOrderProductIds, setActiveOrderProductIds] = useState<Set<string>>(new Set());
   const hasActiveOrder = typeof id === "string" && activeOrderProductIds.has(id);
+
+  // Defensive max: quantityAvailable could be missing/zero/fractional on bad data.
+  // maxQty < 1 disables the whole buy flow rather than letting qty hit 0 or NaN.
+  const rawMax = product?.quantityAvailable;
+  const maxQty =
+    typeof rawMax === "number" && Number.isFinite(rawMax) ? Math.floor(rawMax) : 0;
+  const canBuy = maxQty >= 1;
+
+  // Render-time clamp: qty is per-product intent, but the screen instance is reused
+  // across navigations (Expo Router keeps the same component for /product/[id] when
+  // only the param changes), so qty can briefly outlive the product it was set for —
+  // e.g. leftover from a 20-available product on a freshly opened 3-available one.
+  // Deriving displayQty here (rather than only resetting via effect below) means the
+  // very first render for the new product already shows a valid value, with no flash.
+  const displayQty = canBuy ? Math.min(Math.max(qty, 1), maxQty) : 0;
+
+  const decrementQty = () => setQty(Math.max(1, displayQty - 1));
+  const incrementQty = () => setQty(Math.min(maxQty, displayQty + 1));
 
   useEffect(() => {
     getProducts()
@@ -56,6 +75,12 @@ export default function ProductDetail() {
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
+  }, [id]);
+
+  // Reset the chosen quantity to 1 whenever the buyer navigates to a different
+  // product, so a quantity picked on one listing never carries over to the next.
+  useEffect(() => {
+    setQty(1);
   }, [id]);
 
   const refreshActiveOrders = useCallback(async () => {
@@ -82,9 +107,11 @@ export default function ProductDetail() {
       return;
     }
     if (hasActiveOrder) return;
+    // Clamp defensively so an invalid quantity can never reach the API.
+    const quantity = Math.floor(displayQty);
+    if (!canBuy || !Number.isFinite(quantity) || quantity < 1) return;
     setOrdering(true);
     try {
-      const quantity = product.quantityAvailable;
       const initialPrice = product.price * quantity;
       await createOrder({
         buyerId: user.id,
@@ -204,7 +231,7 @@ export default function ProductDetail() {
         </View>
       </ScrollView>
 
-      {/* Buy button pinned at bottom */}
+      {/* Quantity + buy pinned at bottom */}
       <View style={styles.bottomBar}>
         {hasActiveOrder ? (
           <View style={styles.orderedBtn}>
@@ -212,21 +239,70 @@ export default function ProductDetail() {
             <Text style={styles.orderedBtnText}>Already ordered</Text>
           </View>
         ) : (
-          <TouchableOpacity
-            style={[styles.buyBtn, ordering && styles.buyBtnDisabled]}
-            onPress={handleBuyListing}
-            disabled={ordering}
-            activeOpacity={0.85}
-          >
-            {ordering ? (
-              <ActivityIndicator color={colors.white} size="small" />
-            ) : (
-              <>
-                <Ionicons name="cart-outline" size={20} color={colors.white} />
-                <Text style={styles.buyBtnText}>Buy this listing</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <>
+            {/* Quantity stepper */}
+            <View style={styles.qtyRow}>
+              <TouchableOpacity
+                style={[styles.qtyBtn, (displayQty <= 1 || !canBuy) && styles.qtyBtnDisabled]}
+                onPress={decrementQty}
+                disabled={displayQty <= 1 || !canBuy}
+                accessibilityLabel="Decrease quantity"
+                accessibilityRole="button"
+              >
+                <Ionicons
+                  name="remove"
+                  size={20}
+                  color={displayQty <= 1 || !canBuy ? colors.textMuted : colors.primary}
+                />
+              </TouchableOpacity>
+              <View style={styles.qtyValueWrap}>
+                <Text style={styles.qtyValue}>{displayQty}</Text>
+                <Text style={styles.qtyUnit}>{product.unit}</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.qtyBtn, (displayQty >= maxQty || !canBuy) && styles.qtyBtnDisabled]}
+                onPress={incrementQty}
+                disabled={displayQty >= maxQty || !canBuy}
+                accessibilityLabel="Increase quantity"
+                accessibilityRole="button"
+              >
+                <Ionicons
+                  name="add"
+                  size={20}
+                  color={displayQty >= maxQty || !canBuy ? colors.textMuted : colors.primary}
+                />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.maxHint}>
+              Max {product.quantityAvailable} {product.unit} available
+            </Text>
+
+            {/* Live total */}
+            <View style={styles.totalBox}>
+              <Text style={styles.totalLabel}>
+                Total · {displayQty} × GHS {product.price}
+              </Text>
+              <Text style={styles.totalValue}>GHS {(product.price * displayQty).toFixed(2)}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.buyBtn, (ordering || !canBuy) && styles.buyBtnDisabled]}
+              onPress={handleBuyListing}
+              disabled={ordering || !canBuy}
+              activeOpacity={0.85}
+            >
+              {ordering ? (
+                <ActivityIndicator color={colors.white} size="small" />
+              ) : (
+                <>
+                  <Ionicons name="cart-outline" size={20} color={colors.white} />
+                  <Text style={styles.buyBtnText}>
+                    Buy {displayQty} {product.unit}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </SafeAreaView>
@@ -355,6 +431,58 @@ const styles = StyleSheet.create({
     borderTopColor: HAIRLINE,
     backgroundColor: colors.bg,
   },
+
+  // Quantity stepper
+  qtyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 18,
+  },
+  qtyBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  qtyBtnDisabled: {
+    borderColor: HAIRLINE,
+    backgroundColor: "#F5F6F5",
+  },
+  qtyValueWrap: {
+    minWidth: 84,
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
+    gap: 5,
+  },
+  qtyValue: { fontSize: 22, fontWeight: "800", color: colors.text },
+  qtyUnit: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
+  maxHint: {
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: 6,
+  },
+
+  // Live total
+  totalBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  totalLabel: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
+  totalValue: { fontSize: 18, fontWeight: "800", color: colors.primary },
   buyBtn: {
     backgroundColor: colors.primary,
     borderRadius: 14,

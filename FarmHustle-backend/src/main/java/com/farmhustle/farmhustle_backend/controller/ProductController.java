@@ -3,6 +3,8 @@ package com.farmhustle.farmhustle_backend.controller;
 import com.farmhustle.farmhustle_backend.entity.Product;
 import com.farmhustle.farmhustle_backend.service.ProductService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -79,4 +81,17 @@ public class ProductController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    @PatchMapping("/{id}/details")
+    public ResponseEntity<?> updateDetails(@PathVariable UUID id, @Valid @RequestBody ProductDetailsRequest body) {
+        try {
+            return ResponseEntity.ok(productService.updateDetails(id, body.price(), body.quantityAvailable()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    private record ProductDetailsRequest(
+            @NotNull @Positive Double price,
+            @NotNull @Positive Double quantityAvailable) {}
 }

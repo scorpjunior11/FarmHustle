@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
+  Image,
+  Linking,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,6 +31,19 @@ const cardShadow = {
   shadowRadius: 6,
   elevation: 2,
 } as const;
+
+function formatRequestedAgo(createdAt: string): string {
+  const then = new Date(createdAt).getTime();
+  if (isNaN(then)) return "";
+  const minutes = Math.floor((Date.now() - then) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 function EmptyState({
   icon,
@@ -251,31 +266,115 @@ function JobCard({
   onAccept: () => void;
 }) {
   const order = delivery.order;
+  const orderValue = order ? order.agreedPrice ?? order.initialPrice : null;
 
   return (
     <View style={styles.card}>
-      <View style={styles.routeRow}>
-        <Ionicons name="location-outline" size={15} color={colors.primary} />
+      {/* Requested-when */}
+      <View style={styles.metaTopRow}>
+        <Ionicons name="time-outline" size={12} color={colors.textMuted} />
+        <Text style={styles.requestedText}>Requested {formatRequestedAgo(delivery.createdAt)}</Text>
+      </View>
+
+      {/* Route — stacked pickup/drop-off, clearly labelled */}
+      <View style={styles.routeBlock}>
+        <View style={styles.routeStopRow}>
+          <View style={[styles.routeDot, styles.routeDotPickup]} />
+          <Text style={styles.routeLabel}>Pickup</Text>
+        </View>
         <Text style={styles.routeText} numberOfLines={1}>
           {delivery.pickupLocation ?? "Unknown"}
         </Text>
-        <Ionicons name="arrow-forward" size={15} color={colors.textMuted} style={styles.routeArrow} />
+
+        <View style={styles.routeConnector} />
+
+        <View style={styles.routeStopRow}>
+          <View style={[styles.routeDot, styles.routeDotDrop]} />
+          <Text style={styles.routeLabel}>Drop-off</Text>
+        </View>
         <Text style={styles.routeText} numberOfLines={1}>
           {delivery.deliveryLocation ?? "Unknown"}
         </Text>
       </View>
 
-      <View style={styles.detailRow}>
-        <Ionicons name={order ? "cube-outline" : "cube-outline"} size={13} color={colors.textMuted} />
-        {order ? (
-          <Text style={styles.detailText} numberOfLines={2}>
-            {order.product?.name ?? "Unknown product"} · {order.quantity}{" "}
-            {order.product?.unit ?? ""} for {order.buyer?.name ?? "Unknown buyer"}
-          </Text>
-        ) : (
-          <Text style={styles.detailText}>Standalone delivery</Text>
-        )}
-      </View>
+      {order ? (
+        <>
+          <View style={styles.divider} />
+
+          {/* Product + order value */}
+          <View style={styles.productRow}>
+            {order.product?.imageUrl ? (
+              <Image
+                source={{ uri: order.product.imageUrl }}
+                style={styles.productThumb}
+                resizeMode="cover"
+                accessibilityLabel={`Photo of ${order.product?.name ?? "product"}`}
+              />
+            ) : (
+              <View style={[styles.productThumb, styles.productThumbPlaceholder]}>
+                <Ionicons name="leaf-outline" size={20} color="#C4CDC6" />
+              </View>
+            )}
+            <View style={styles.productInfo}>
+              <Text style={styles.productName} numberOfLines={1}>
+                {order.product?.name ?? "Unknown product"}
+              </Text>
+              <Text style={styles.productMeta}>
+                {order.quantity} {order.product?.unit ?? ""}
+              </Text>
+            </View>
+            {orderValue != null ? (
+              <View style={styles.valueBlock}>
+                <Text style={styles.valueLabel}>Order value</Text>
+                <Text style={styles.valueAmount}>GHS {orderValue.toFixed(2)}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Buyer */}
+          <View style={styles.personRow}>
+            <Ionicons name="person-outline" size={13} color={colors.textMuted} />
+            <Text style={styles.personText} numberOfLines={1}>
+              <Text style={styles.personLabel}>Buyer  </Text>
+              {order.buyer?.name ?? "Unknown buyer"}
+            </Text>
+          </View>
+          {order.buyer?.phone ? (
+            <TouchableOpacity
+              style={styles.callRow}
+              onPress={() => Linking.openURL(`tel:${order.buyer!.phone}`)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="call-outline" size={13} color={colors.primary} />
+              <Text style={styles.callText}>{order.buyer.phone}</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {/* Farmer */}
+          <View style={styles.personRow}>
+            <Ionicons name="leaf-outline" size={13} color={colors.textMuted} />
+            <Text style={styles.personText} numberOfLines={1}>
+              <Text style={styles.personLabel}>Farmer  </Text>
+              {order.farmer?.name ?? "Unknown farmer"}
+            </Text>
+          </View>
+          {order.farmer?.phone ? (
+            <TouchableOpacity
+              style={styles.callRow}
+              onPress={() => Linking.openURL(`tel:${order.farmer!.phone}`)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="call-outline" size={13} color={colors.primary} />
+              <Text style={styles.callText}>{order.farmer.phone}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </>
+      ) : (
+        <View style={styles.standaloneTag}>
+          <Ionicons name="cube-outline" size={13} color={colors.textMuted} />
+          <Text style={styles.standaloneTagText}>Standalone delivery</Text>
+        </View>
+      )}
 
       <TouchableOpacity style={styles.acceptBtn} onPress={onAccept} activeOpacity={0.85}>
         <Ionicons name="checkmark-circle-outline" size={16} color={colors.white} />
@@ -333,12 +432,70 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     ...cardShadow,
   },
-  routeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  routeText: { flexShrink: 1, fontSize: 14, fontWeight: "800", color: colors.text },
-  routeArrow: { flexShrink: 0 },
 
-  detailRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 10 },
-  detailText: { flex: 1, fontSize: 13, color: colors.textMuted },
+  metaTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 4 },
+  requestedText: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+
+  // Route — stacked pickup/drop-off, the card's headline
+  routeBlock: { marginTop: 8 },
+  routeStopRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  routeDot: { width: 8, height: 8, borderRadius: 4 },
+  routeDotPickup: { backgroundColor: colors.primary },
+  routeDotDrop: { backgroundColor: colors.accent },
+  routeLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textMuted,
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
+  routeText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.text,
+    marginLeft: 14,
+    marginTop: 2,
+  },
+  routeConnector: {
+    width: 1.5,
+    height: 14,
+    backgroundColor: HAIRLINE,
+    marginLeft: 3.25,
+    marginVertical: 4,
+  },
+
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: HAIRLINE, marginVertical: 14 },
+
+  // Product + order value
+  productRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  productThumb: { width: 48, height: 48, borderRadius: 10, backgroundColor: "#F2F4F2" },
+  productThumbPlaceholder: { justifyContent: "center", alignItems: "center" },
+  productInfo: { flex: 1, minWidth: 0 },
+  productName: { fontSize: 14, fontWeight: "700", color: colors.text },
+  productMeta: { fontSize: 12.5, color: colors.textMuted, marginTop: 2 },
+  valueBlock: { alignItems: "flex-end" },
+  valueLabel: { fontSize: 10.5, color: colors.textMuted, fontWeight: "600" },
+  valueAmount: { fontSize: 16, fontWeight: "800", color: colors.primary, marginTop: 1 },
+
+  // Buyer / farmer
+  personRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 },
+  personText: { flex: 1, fontSize: 13, color: colors.text },
+  personLabel: { color: colors.textMuted, fontWeight: "700" },
+  callRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3, marginLeft: 19 },
+  callText: { fontSize: 12.5, color: colors.primary, fontWeight: "600" },
+
+  standaloneTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#F5F6F5",
+    alignSelf: "flex-start",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 14,
+  },
+  standaloneTagText: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
 
   acceptBtn: {
     marginTop: 14,

@@ -59,6 +59,14 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    public Product updateDetails(UUID id, Double price, Double quantityAvailable) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found: " + id));
+        product.setPrice(price);
+        product.setQuantityAvailable(quantityAvailable);
+        return productRepository.save(product);
+    }
+
     public void delete(UUID id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found: " + id));

@@ -16,7 +16,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { createProduct, getProducts, deactivateProduct, reactivateProduct, deleteProduct, Product } from '../../api/client';
+import { createProduct, getProducts, deactivateProduct, reactivateProduct, deleteProduct, updateProductDetails, Product } from '../../api/client';
 import { uploadImageToCloudinary } from '../../api/uploadImage';
 import { useAuth } from '../../context/AuthContext';
 import { THEME } from '../../theme/theme';
@@ -46,12 +46,14 @@ const categoryLabel = (value: string) => value.charAt(0) + value.slice(1).toLowe
 function ListingCard({
   product,
   busy,
+  onEdit,
   onRemove,
   onReactivate,
   onDelete,
 }: {
   product: Product;
   busy: boolean;
+  onEdit: () => void;
   onRemove: () => void;
   onReactivate: () => void;
   onDelete: () => void;
@@ -81,23 +83,34 @@ function ListingCard({
           <Text style={cardStyles.categoryTagText}>{categoryLabel(product.category)}</Text>
         </View>
 
-        {/* Remove action (active listings only) */}
-        {product.isActive ? (
-          busy ? (
-            <View style={cardStyles.removeBtn}>
-              <ActivityIndicator size="small" color={colors.danger} />
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={cardStyles.removeBtn}
-              onPress={onRemove}
-              accessibilityLabel={`Remove ${product.name}`}
-              accessibilityRole="button"
-            >
-              <Ionicons name="eye-off-outline" size={16} color={colors.danger} />
-            </TouchableOpacity>
-          )
-        ) : null}
+        {/* Corner actions: edit (always) + remove (active listings only) */}
+        <View style={cardStyles.cornerActions}>
+          <TouchableOpacity
+            style={cardStyles.cornerBtn}
+            onPress={onEdit}
+            disabled={busy}
+            accessibilityLabel={`Edit ${product.name}`}
+            accessibilityRole="button"
+          >
+            <Ionicons name="pencil-outline" size={16} color={colors.primary} />
+          </TouchableOpacity>
+          {product.isActive ? (
+            busy ? (
+              <View style={cardStyles.cornerBtn}>
+                <ActivityIndicator size="small" color={colors.danger} />
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={cardStyles.cornerBtn}
+                onPress={onRemove}
+                accessibilityLabel={`Remove ${product.name}`}
+                accessibilityRole="button"
+              >
+                <Ionicons name="eye-off-outline" size={16} color={colors.danger} />
+              </TouchableOpacity>
+            )
+          ) : null}
+        </View>
       </View>
 
       {/* Body */}
@@ -198,10 +211,14 @@ const cardStyles = StyleSheet.create({
     paddingVertical: 3,
   },
   categoryTagText: { fontSize: 10, fontWeight: '800', color: colors.accentText, letterSpacing: 0.3 },
-  removeBtn: {
+  cornerActions: {
     position: 'absolute',
     top: 10,
     right: 10,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cornerBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
@@ -280,6 +297,13 @@ export default function FarmerScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // ── Edit Listing modal state ───────────────────────────────
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editPrice, setEditPrice] = useState('');
+  const [editQuantity, setEditQuantity] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
     if (!user) {
@@ -369,6 +393,49 @@ export default function FarmerScreen() {
         },
       ]
     );
+  };
+
+  const openEditModal = (product: Product) => {
+    setEditingProduct(product);
+    setEditPrice(String(product.price));
+    setEditQuantity(String(product.quantityAvailable));
+    setEditError(null);
+  };
+
+  const closeEditModal = () => {
+    if (!savingEdit) setEditingProduct(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingProduct) return;
+    if (
+      !editQuantity.trim() ||
+      isNaN(Number(editQuantity)) ||
+      Number(editQuantity) <= 0 ||
+      !Number.isInteger(Number(editQuantity))
+    ) {
+      setEditError('Please enter a valid whole number quantity greater than 0.');
+      return;
+    }
+    if (!editPrice.trim() || isNaN(Number(editPrice)) || Number(editPrice) <= 0) {
+      setEditError('Please enter a valid price greater than 0.');
+      return;
+    }
+    setEditError(null);
+    setSavingEdit(true);
+    try {
+      const updated = await updateProductDetails(editingProduct.id, {
+        price: Number(editPrice),
+        quantityAvailable: Number(editQuantity),
+      });
+      setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      setEditingProduct(null);
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : 'Something went wrong.';
+      Alert.alert('Could not save changes', raw.replace(/^\d{3}:\s*/, ''));
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const handlePickImage = async () => {
@@ -495,6 +562,7 @@ export default function FarmerScreen() {
             <ListingCard
               product={item}
               busy={actingProductId === item.id}
+              onEdit={() => openEditModal(item)}
               onRemove={() => handleRemove(item)}
               onReactivate={() => handleReactivate(item)}
               onDelete={() => handleDelete(item)}
@@ -669,6 +737,74 @@ export default function FarmerScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Edit Listing Modal (price & quantity only) */}
+      <Modal
+        visible={editingProduct !== null}
+        animationType="slide"
+        onRequestClose={closeEditModal}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top', 'bottom']}>
+          <View style={ap.modalHeader}>
+            <Text style={ap.modalTitle}>Edit Listing</Text>
+            <TouchableOpacity
+              onPress={closeEditModal}
+              accessibilityLabel="Close"
+              accessibilityRole="button"
+            >
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+            <Text style={s.label}>Product</Text>
+            <View style={ap.readOnlyField}>
+              <Text style={ap.readOnlyFieldText}>{editingProduct?.name}</Text>
+            </View>
+
+            <Text style={s.label}>Quantity Available</Text>
+            <TextInput
+              style={s.input}
+              placeholder="e.g. 500"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="numeric"
+              value={editQuantity}
+              onChangeText={setEditQuantity}
+              accessibilityLabel="Quantity available"
+            />
+
+            <Text style={s.label}>Price (per unit, GHS)</Text>
+            <TextInput
+              style={s.input}
+              placeholder="e.g. 12.50"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="numeric"
+              value={editPrice}
+              onChangeText={setEditPrice}
+              accessibilityLabel="Price per unit"
+            />
+
+            {editError ? <Text style={ap.errorText}>{editError}</Text> : null}
+
+            <TouchableOpacity
+              style={[s.createBtn, savingEdit && { opacity: 0.6 }]}
+              onPress={handleSaveEdit}
+              disabled={savingEdit}
+              accessibilityLabel="Save changes"
+              accessibilityRole="button"
+            >
+              {savingEdit ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={20} color={colors.white} />
+                  <Text style={s.createBtnText}>Save changes</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -784,6 +920,15 @@ const ap = StyleSheet.create({
   chipText: { fontSize: 13, color: colors.text, fontWeight: '600' },
   chipTextSelected: { color: colors.white, fontWeight: '700' },
   errorText: { color: colors.danger, fontSize: 13, marginTop: 12 },
+  readOnlyField: {
+    borderWidth: 1.5,
+    borderColor: HAIRLINE,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#EDEDED',
+  },
+  readOnlyFieldText: { fontSize: 14, fontWeight: '600', color: colors.textMuted },
   photoPicker: {
     borderWidth: 1.5,
     borderColor: HAIRLINE,
