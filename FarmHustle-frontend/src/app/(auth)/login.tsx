@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { login } from "../../api/client";
+import { login, resendVerification, EmailNotVerifiedError } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../theme/theme";
 
@@ -27,6 +27,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   async function handleLogin() {
@@ -35,6 +36,7 @@ export default function LoginScreen() {
       return;
     }
     setError("");
+    setInfo("");
     setLoading(true);
     try {
       const { token, user } = await login({ email: email.trim(), password });
@@ -54,6 +56,16 @@ export default function LoginScreen() {
           router.replace("/(buyer)");
       }
     } catch (err: unknown) {
+      if (err instanceof EmailNotVerifiedError) {
+        setInfo("Please verify your email — we're sending you to the code screen.");
+        try {
+          await resendVerification(err.email);
+        } catch (resendErr) {
+          console.error("Auto-resend on unverified login failed:", resendErr);
+        }
+        router.replace({ pathname: "/verify-email", params: { email: err.email } });
+        return;
+      }
       console.error("Login failed:", err);
       const message = err instanceof Error ? err.message.replace(/^\d{3}:\s*/, "").trim() : "";
       setError(message || "Invalid email or password");
@@ -132,6 +144,14 @@ export default function LoginScreen() {
             <View style={styles.errorBox}>
               <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
               <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          {/* Inline info (e.g. redirecting to verify email) */}
+          {!!info && !error && (
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle-outline" size={16} color={colors.success} />
+              <Text style={styles.infoText}>{info}</Text>
             </View>
           )}
 
@@ -221,6 +241,16 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   errorText: { fontSize: 13, color: colors.danger, flex: 1, fontWeight: "500" },
+
+  infoBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#E8F5E9",
+    borderRadius: 12,
+    padding: 12,
+  },
+  infoText: { fontSize: 13, color: colors.success, flex: 1, fontWeight: "500" },
 
   submitBtn: {
     backgroundColor: colors.primary,

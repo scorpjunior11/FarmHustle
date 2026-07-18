@@ -427,6 +427,19 @@ export async function updateProfilePhoto(userId: string, profilePhotoUrl: string
 export type AuthResponse = { token: string; user: AuthUser };
 export type SignupResponse = { message: string; email: string };
 
+// Thrown by login() when the backend rejects with 403 EMAIL_NOT_VERIFIED, so
+// callers can distinguish "needs verification" from a normal bad-credentials
+// error without parsing message strings.
+export class EmailNotVerifiedError extends Error {
+  email: string;
+
+  constructor(email: string, message: string) {
+    super(message);
+    this.name = "EmailNotVerifiedError";
+    this.email = email;
+  }
+}
+
 export async function signup(data: {
   name: string;
   email: string;
@@ -457,6 +470,18 @@ export async function login(data: { email: string; password: string }): Promise<
   });
 
   if (!response.ok) {
+    if (response.status === 403) {
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; message?: string; email?: string }
+        | null;
+      if (body?.error === "EMAIL_NOT_VERIFIED") {
+        throw new EmailNotVerifiedError(
+          body.email ?? data.email,
+          body.message || "Please verify your email before logging in."
+        );
+      }
+      throw new Error(body?.message || "Login failed");
+    }
     const message = await response.text();
     throw new Error(message || "Login failed");
   }
