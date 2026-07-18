@@ -16,7 +16,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { getActiveProducts, Product } from "../../api/client";
+import { getActiveProducts, getActiveOrderProductIds, Product } from "../../api/client";
+import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../theme/theme";
 
 const { colors } = THEME;
@@ -60,15 +61,17 @@ const categoryLabel = (value: Product["category"]) =>
 const CropCard = ({
   item,
   liked,
+  ordered,
   onToggleLike,
   onBuy,
 }: {
   item: Product;
   liked: boolean;
+  ordered: boolean;
   onToggleLike: (id: string) => void;
   onBuy: (item: Product) => void;
 }) => (
-  <View style={styles.card}>
+  <TouchableOpacity style={styles.card} onPress={() => onBuy(item)} activeOpacity={0.9}>
     {/* Image / placeholder */}
     <View style={styles.imageWrap}>
       {item.imageUrl ? (
@@ -128,16 +131,24 @@ const CropCard = ({
       </View>
 
       {/* Buy */}
-      <TouchableOpacity style={styles.buyButton} onPress={() => onBuy(item)} activeOpacity={0.85}>
-        <Ionicons name="cart-outline" size={15} color={colors.white} />
-        <Text style={styles.buyButtonText}>Buy</Text>
-      </TouchableOpacity>
+      {ordered ? (
+        <View style={styles.orderedBadge}>
+          <Ionicons name="checkmark-circle-outline" size={15} color={colors.textMuted} />
+          <Text style={styles.orderedBadgeText}>Ordered</Text>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.buyButton} onPress={() => onBuy(item)} activeOpacity={0.85}>
+          <Ionicons name="cart-outline" size={15} color={colors.white} />
+          <Text style={styles.buyButtonText}>Buy</Text>
+        </TouchableOpacity>
+      )}
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function BuyerHome() {
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [products, setProducts] = useState<Product[]>([]);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
@@ -145,6 +156,7 @@ export default function BuyerHome() {
   const [selectedCategory, setSelectedCategory] = useState<Product["category"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeOrderProductIds, setActiveOrderProductIds] = useState<Set<string>>(new Set());
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -158,13 +170,28 @@ export default function BuyerHome() {
     }
   }, []);
 
+  const fetchOrders = useCallback(async () => {
+    if (!user) {
+      setActiveOrderProductIds(new Set());
+      return;
+    }
+    try {
+      const ids = await getActiveOrderProductIds(user.id);
+      setActiveOrderProductIds(ids);
+    } catch {
+      // silently fail — badge state stays as-is
+    }
+  }, [user]);
+
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]);
+    fetchOrders();
+  }, [fetchProducts, fetchOrders]);
 
   const handleRefresh = () => {
     setRefreshing(true);
     fetchProducts();
+    fetchOrders();
   };
 
   const filtered = products.filter((p) => {
@@ -196,6 +223,7 @@ export default function BuyerHome() {
           <CropCard
             item={item}
             liked={!!likedMap[item.id]}
+            ordered={activeOrderProductIds.has(item.id)}
             onToggleLike={toggleLike}
             onBuy={handleBuy}
           />
@@ -470,6 +498,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   buyButtonText: { color: colors.white, fontSize: 13, fontWeight: "700" },
+
+  orderedBadge: {
+    backgroundColor: "#EDEDED",
+    borderRadius: 10,
+    height: 34,
+    marginTop: 8,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  orderedBadgeText: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
 
   // Empty / loading
   emptyState: { alignItems: "center", paddingTop: 70, gap: 12 },

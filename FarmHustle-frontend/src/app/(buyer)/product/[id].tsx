@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, router } from "expo-router";
 import {
   getProducts,
+  getActiveOrderProductIds,
   createOrder,
   Product,
 } from "../../../api/client";
@@ -43,6 +44,8 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [ordering, setOrdering] = useState(false);
+  const [activeOrderProductIds, setActiveOrderProductIds] = useState<Set<string>>(new Set());
+  const hasActiveOrder = typeof id === "string" && activeOrderProductIds.has(id);
 
   useEffect(() => {
     getProducts()
@@ -55,12 +58,30 @@ export default function ProductDetail() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const refreshActiveOrders = useCallback(async () => {
+    if (!user) {
+      setActiveOrderProductIds(new Set());
+      return;
+    }
+    try {
+      const ids = await getActiveOrderProductIds(user.id);
+      setActiveOrderProductIds(ids);
+    } catch {
+      // silently fail — Buy button stays as the fallback UI
+    }
+  }, [user]);
+
+  useEffect(() => {
+    refreshActiveOrders();
+  }, [refreshActiveOrders]);
+
   async function handleBuyListing() {
     if (!product) return;
     if (!user) {
       Alert.alert("Not logged in", "Please log in to place an order.");
       return;
     }
+    if (hasActiveOrder) return;
     setOrdering(true);
     try {
       const quantity = product.quantityAvailable;
@@ -72,6 +93,9 @@ export default function ProductDetail() {
         quantity,
         initialPrice,
       });
+      // Reflect the order we just placed immediately, so the button can't
+      // be tapped again before a fresh fetch would otherwise catch it.
+      setActiveOrderProductIds((prev) => new Set(prev).add(product.id));
       Alert.alert("Order placed", `Your order for ${product.name} has been placed.`);
     } catch (err: unknown) {
       Alert.alert(
@@ -182,21 +206,28 @@ export default function ProductDetail() {
 
       {/* Buy button pinned at bottom */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={[styles.buyBtn, ordering && styles.buyBtnDisabled]}
-          onPress={handleBuyListing}
-          disabled={ordering}
-          activeOpacity={0.85}
-        >
-          {ordering ? (
-            <ActivityIndicator color={colors.white} size="small" />
-          ) : (
-            <>
-              <Ionicons name="cart-outline" size={20} color={colors.white} />
-              <Text style={styles.buyBtnText}>Buy this listing</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {hasActiveOrder ? (
+          <View style={styles.orderedBtn}>
+            <Ionicons name="checkmark-circle-outline" size={20} color={colors.textMuted} />
+            <Text style={styles.orderedBtnText}>Already ordered</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.buyBtn, ordering && styles.buyBtnDisabled]}
+            onPress={handleBuyListing}
+            disabled={ordering}
+            activeOpacity={0.85}
+          >
+            {ordering ? (
+              <ActivityIndicator color={colors.white} size="small" />
+            ) : (
+              <>
+                <Ionicons name="cart-outline" size={20} color={colors.white} />
+                <Text style={styles.buyBtnText}>Buy this listing</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -335,6 +366,17 @@ const styles = StyleSheet.create({
   },
   buyBtnDisabled: { opacity: 0.65 },
   buyBtnText: { fontSize: 16, fontWeight: "700", color: colors.white },
+
+  orderedBtn: {
+    backgroundColor: "#EDEDED",
+    borderRadius: 14,
+    paddingVertical: 16,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+  },
+  orderedBtnText: { fontSize: 16, fontWeight: "700", color: colors.textMuted },
 
   notFoundText: { fontSize: 16, color: "#757575" },
   backLink: { fontSize: 14, color: colors.primary, fontWeight: "600" },

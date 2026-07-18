@@ -183,6 +183,21 @@ export async function getOrdersByBuyer(buyerId: string): Promise<Order[]> {
   return response.json() as Promise<Order[]>;
 }
 
+// An order counts as "active" (blocks re-ordering the same product) unless
+// it's reached a terminal state. Single source of truth shared by every
+// screen that needs to know which products a buyer already has an open
+// order for, so the set of "active" statuses can't drift between them.
+const TERMINAL_ORDER_STATUSES: ReadonlySet<OrderStatus> = new Set(["COMPLETED", "CANCELLED"]);
+
+export async function getActiveOrderProductIds(buyerId: string): Promise<Set<string>> {
+  const orders = await getOrdersByBuyer(buyerId);
+  const ids = orders
+    .filter((o) => !TERMINAL_ORDER_STATUSES.has(o.status))
+    .map((o) => o.product?.id)
+    .filter((id): id is string => !!id);
+  return new Set(ids);
+}
+
 export async function getOrdersByFarmer(farmerId: string): Promise<Order[]> {
   const response = await authFetch(`${BASE_URL}/api/orders/farmer/${farmerId}`);
   if (!response.ok) {
