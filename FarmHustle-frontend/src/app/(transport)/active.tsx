@@ -280,21 +280,33 @@ function DeliveryCard({
           <Text style={styles.waitingText}>Waiting for buyer to accept fee</Text>
         </View>
       ) : delivery.status === "ACCEPTED" ? (
-        <TouchableOpacity
-          style={[styles.actionBtn, busy && styles.btnDisabled]}
-          onPress={onStart}
-          disabled={busy}
-          activeOpacity={0.85}
-        >
-          {busy ? (
-            <ActivityIndicator color={colors.white} size="small" />
-          ) : (
-            <>
-              <Ionicons name="play-outline" size={16} color={colors.white} />
-              <Text style={styles.actionBtnText}>Start delivery</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        delivery.feePaid ? (
+          <TouchableOpacity
+            style={[styles.actionBtn, busy && styles.btnDisabled]}
+            onPress={onStart}
+            disabled={busy}
+            activeOpacity={0.85}
+          >
+            {busy ? (
+              <ActivityIndicator color={colors.white} size="small" />
+            ) : (
+              <>
+                <Ionicons name="play-outline" size={16} color={colors.white} />
+                <Text style={styles.actionBtnText}>Start delivery</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <>
+            <View style={styles.waitingRow}>
+              <Ionicons name="hourglass-outline" size={16} color={colors.textMuted} />
+              <Text style={styles.waitingText}>Awaiting buyer payment</Text>
+            </View>
+            <Text style={styles.waitingSubtext}>
+              You can start the delivery once the buyer pays the fee.
+            </Text>
+          </>
+        )
       ) : waitingForBuyer ? (
         <View style={styles.waitingRow}>
           <Ionicons name="hourglass-outline" size={16} color={colors.textMuted} />
@@ -414,4 +426,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   waitingText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
+  waitingSubtext: {
+    marginTop: 2,
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: "center",
+    paddingHorizontal: 12,
+  },
 });

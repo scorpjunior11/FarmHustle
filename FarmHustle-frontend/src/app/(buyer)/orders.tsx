@@ -11,6 +11,8 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  Image,
+  Linking,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,6 +31,7 @@ import {
   Order,
   OrderStatus,
   Delivery,
+  AuthUser,
 } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../theme/theme";
@@ -524,6 +527,58 @@ function transportStatusLabel(delivery: Delivery): string {
   }
 }
 
+// Shown for FEE_PROPOSED (deciding whether to accept a stranger's fee) and for
+// ACCEPTED/IN_TRANSIT (reaching the provider who is actually carrying the goods).
+function ProviderCard({
+  provider,
+  deliveryFee,
+}: {
+  provider: AuthUser;
+  deliveryFee: number | null;
+}) {
+  return (
+    <View style={styles.providerCard}>
+      <View style={styles.providerTopRow}>
+        {provider.profilePhotoUrl ? (
+          <Image
+            source={{ uri: provider.profilePhotoUrl }}
+            style={styles.providerAvatarImage}
+            accessibilityLabel={`Photo of ${provider.name}`}
+          />
+        ) : (
+          <View style={styles.providerAvatarPlaceholder}>
+            <Ionicons name="person" size={22} color={colors.primary} />
+          </View>
+        )}
+        <View style={styles.providerInfo}>
+          <Text style={styles.providerName} numberOfLines={1}>
+            {provider.name}
+          </Text>
+          <View style={styles.providerMetaRow}>
+            <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+            <Text style={styles.providerMetaText} numberOfLines={1}>
+              {provider.city}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.providerCallRow}
+            onPress={() => Linking.openURL(`tel:${provider.phone}`)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="call-outline" size={13} color={colors.primary} />
+            <Text style={styles.providerCallText}>{provider.phone}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.providerFeeRow}>
+        <Text style={styles.providerFeeLabel}>Delivery fee</Text>
+        <Text style={styles.providerFeeValue}>GHS {deliveryFee ?? 0}</Text>
+      </View>
+    </View>
+  );
+}
+
 function OrderCard({
   order,
   delivery,
@@ -648,6 +703,12 @@ function OrderCard({
         </View>
       ) : null}
 
+      {delivery &&
+      (delivery.status === "ACCEPTED" || delivery.status === "IN_TRANSIT") &&
+      delivery.provider ? (
+        <ProviderCard provider={delivery.provider} deliveryFee={delivery.deliveryFee} />
+      ) : null}
+
       {delivery && delivery.status === "ACCEPTED" && delivery.feePaid !== true ? (
         <TouchableOpacity
           style={[styles.requestBtn, payingFee && styles.btnDisabled]}
@@ -674,38 +735,43 @@ function OrderCard({
       ) : null}
 
       {delivery && delivery.status === "FEE_PROPOSED" ? (
-        <View style={styles.feeDecisionRow}>
-          <TouchableOpacity
-            style={[styles.declineFeeBtn, (acceptingFee || decliningFee) && styles.btnDisabled]}
-            onPress={onDeclineFee}
-            disabled={acceptingFee || decliningFee}
-            activeOpacity={0.85}
-          >
-            {decliningFee ? (
-              <ActivityIndicator color={colors.danger} size="small" />
-            ) : (
-              <>
-                <Ionicons name="close-outline" size={16} color={colors.danger} />
-                <Text style={styles.declineFeeBtnText}>Decline</Text>
-              </>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.acceptFeeBtn, (acceptingFee || decliningFee) && styles.btnDisabled]}
-            onPress={onAcceptFee}
-            disabled={acceptingFee || decliningFee}
-            activeOpacity={0.85}
-          >
-            {acceptingFee ? (
-              <ActivityIndicator color={colors.white} size="small" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-outline" size={16} color={colors.white} />
-                <Text style={styles.requestBtnText}>Accept fee</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+        <>
+          {delivery.provider ? (
+            <ProviderCard provider={delivery.provider} deliveryFee={delivery.deliveryFee} />
+          ) : null}
+          <View style={styles.feeDecisionRow}>
+            <TouchableOpacity
+              style={[styles.declineFeeBtn, (acceptingFee || decliningFee) && styles.btnDisabled]}
+              onPress={onDeclineFee}
+              disabled={acceptingFee || decliningFee}
+              activeOpacity={0.85}
+            >
+              {decliningFee ? (
+                <ActivityIndicator color={colors.danger} size="small" />
+              ) : (
+                <>
+                  <Ionicons name="close-outline" size={16} color={colors.danger} />
+                  <Text style={styles.declineFeeBtnText}>Decline</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.acceptFeeBtn, (acceptingFee || decliningFee) && styles.btnDisabled]}
+              onPress={onAcceptFee}
+              disabled={acceptingFee || decliningFee}
+              activeOpacity={0.85}
+            >
+              {acceptingFee ? (
+                <ActivityIndicator color={colors.white} size="small" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-outline" size={16} color={colors.white} />
+                  <Text style={styles.requestBtnText}>Accept fee</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </>
       ) : null}
 
       {delivery && delivery.status === "REQUESTED" ? (
@@ -840,6 +906,46 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   feePaidText: { fontSize: 13, fontWeight: "700", color: colors.primary },
+
+  providerCard: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: HAIRLINE,
+  },
+  providerTopRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  providerAvatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+  },
+  providerAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  providerInfo: { flex: 1, minWidth: 0, gap: 3 },
+  providerName: { fontSize: 14, fontWeight: "800", color: colors.text },
+  providerMetaRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  providerMetaText: { fontSize: 12.5, color: colors.textMuted },
+  providerCallRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 1 },
+  providerCallText: { fontSize: 12.5, color: colors.primary, fontWeight: "600" },
+  providerFeeRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  providerFeeLabel: { fontSize: 12.5, fontWeight: "600", color: colors.textMuted },
+  providerFeeValue: { fontSize: 16, fontWeight: "800", color: colors.primary },
 
   feeDecisionRow: { flexDirection: "row", gap: 10, marginTop: 12 },
   acceptFeeBtn: {

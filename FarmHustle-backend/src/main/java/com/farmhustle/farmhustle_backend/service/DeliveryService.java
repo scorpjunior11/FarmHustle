@@ -137,6 +137,15 @@ public class DeliveryService {
             throw new RuntimeException(
                     "Invalid status transition from " + current + " to " + newStatus);
         }
+        // A provider can't start a delivery before the buyer has paid the fee.
+        // Standalone deliveries (no linked order) can never be paid online at all —
+        // see PaymentService.initializeDeliveryPayment — so they're exempt, or they'd
+        // be permanently unstartable.
+        if (newStatus == TransportStatus.IN_TRANSIT
+                && delivery.getOrder() != null
+                && !Boolean.TRUE.equals(delivery.getFeePaid())) {
+            throw new IllegalStateException("The buyer has not paid the delivery fee yet.");
+        }
         delivery.setStatus(newStatus);
         delivery.setUpdatedAt(LocalDateTime.now());
         delivery = deliveryRepository.save(delivery);
