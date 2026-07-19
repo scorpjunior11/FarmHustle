@@ -1,5 +1,6 @@
 package com.farmhustle.farmhustle_backend.service;
 
+import com.farmhustle.farmhustle_backend.exception.EmailDeliveryException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -42,10 +43,10 @@ public class EmailService {
         try {
             restTemplate.postForEntity(BREVO_BASE_URL, new HttpEntity<>(body, headers), Map.class);
         } catch (RestClientResponseException e) {
-            throw new RuntimeException(
+            throw new EmailDeliveryException(
                     "Brevo email send failed (" + e.getStatusCode().value() + "): " + e.getResponseBodyAsString());
         } catch (RestClientException e) {
-            throw new RuntimeException("Could not reach Brevo: " + e.getMessage());
+            throw new EmailDeliveryException("Could not reach Brevo: " + e.getMessage());
         }
     }
 }

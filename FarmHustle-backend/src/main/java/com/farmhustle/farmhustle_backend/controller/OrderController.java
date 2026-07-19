@@ -2,6 +2,7 @@ package com.farmhustle.farmhustle_backend.controller;
 
 import com.farmhustle.farmhustle_backend.entity.Order;
 import com.farmhustle.farmhustle_backend.entity.OrderStatus;
+import com.farmhustle.farmhustle_backend.security.CurrentUser;
 import com.farmhustle.farmhustle_backend.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -22,8 +23,12 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<Order> create(@Valid @RequestBody Order order) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createOrder(order));
+    public ResponseEntity<?> create(@Valid @RequestBody Order order) {
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createOrder(order));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @GetMapping
@@ -49,10 +54,32 @@ public class OrderController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<?> updateStatus(@PathVariable UUID id, @RequestBody StatusRequest body) {
         try {
+            Order order = orderService.getOrderById(id);
+            if (!isTransitionAllowedForCaller(order, body.status())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("You are not allowed to set this order to " + body.status() + ".");
+            }
             return ResponseEntity.ok(orderService.updateStatus(id, body.status()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    // Ownership is enforced only for this client-facing endpoint. DeliveryService's
+    // propagation calls go straight to OrderService.updateStatus and never pass
+    // through this method, so they are unaffected by this check.
+    private boolean isTransitionAllowedForCaller(Order order, OrderStatus newStatus) {
+        UUID callerId = CurrentUser.id();
+        boolean isBuyer = order.getBuyer() != null && callerId.equals(order.getBuyer().getId());
+        boolean isFarmer = order.getFarmer() != null && callerId.equals(order.getFarmer().getId());
+
+        if (newStatus == OrderStatus.CANCELLED) {
+            return isBuyer || isFarmer;
+        }
+        if (newStatus == OrderStatus.AWAITING_PAYMENT) {
+            return isFarmer;
+        }
+        return false;
     }
 
     private record StatusRequest(OrderStatus status) {}

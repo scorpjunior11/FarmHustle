@@ -6,6 +6,7 @@ import com.farmhustle.farmhustle_backend.exception.EmailNotVerifiedException;
 import com.farmhustle.farmhustle_backend.repository.UserRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -26,6 +27,7 @@ public class AuthService {
         this.emailService = emailService;
     }
 
+    @Transactional
     public User signup(String name, String email, String phone, String rawPassword, Role role, String city) {
         if (userRepository.findByEmail(email).isPresent()) {
             throw new RuntimeException("An account with this email already exists.");

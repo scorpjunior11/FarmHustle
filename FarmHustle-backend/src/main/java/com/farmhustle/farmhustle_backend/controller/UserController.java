@@ -1,6 +1,7 @@
 package com.farmhustle.farmhustle_backend.controller;
 
 import com.farmhustle.farmhustle_backend.entity.User;
+import com.farmhustle.farmhustle_backend.security.CurrentUser;
 import com.farmhustle.farmhustle_backend.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -38,11 +39,20 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<User> update(@PathVariable UUID id, @Valid @RequestBody User user) {
+    public ResponseEntity<?> update(@PathVariable UUID id, @Valid @RequestBody User user) {
+        if (!CurrentUser.id().equals(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only update your own profile.");
+        }
         return userService.getById(id)
                 .map(existing -> {
-                    user.setId(id);
-                    return ResponseEntity.ok(userService.update(user));
+                    // Only name/phone/city are user-editable through this endpoint.
+                    // role, isActive, emailVerified, passwordHash, verificationCode,
+                    // verificationCodeExpiry and profilePhotoUrl (its own dedicated
+                    // /photo endpoint) are never taken from the request body.
+                    existing.setName(user.getName());
+                    existing.setPhone(user.getPhone());
+                    existing.setCity(user.getCity());
+                    return ResponseEntity.ok(userService.update(existing));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }

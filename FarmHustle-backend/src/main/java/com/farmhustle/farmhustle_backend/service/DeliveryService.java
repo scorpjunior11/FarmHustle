@@ -1,11 +1,16 @@
 package com.farmhustle.farmhustle_backend.service;
 
 import com.farmhustle.farmhustle_backend.entity.Delivery;
+import com.farmhustle.farmhustle_backend.entity.Order;
+import com.farmhustle.farmhustle_backend.entity.OrderStatus;
 import com.farmhustle.farmhustle_backend.entity.TransportStatus;
 import com.farmhustle.farmhustle_backend.entity.User;
 import com.farmhustle.farmhustle_backend.repository.DeliveryRepository;
 import com.farmhustle.farmhustle_backend.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.EnumMap;
@@ -32,12 +37,17 @@ public class DeliveryService {
                 Set.of(TransportStatus.DELIVERED));
     }
 
+    private static final Logger log = LoggerFactory.getLogger(DeliveryService.class);
+
     private final DeliveryRepository deliveryRepository;
     private final UserRepository userRepository;
+    private final OrderService orderService;
 
-    public DeliveryService(DeliveryRepository deliveryRepository, UserRepository userRepository) {
+    public DeliveryService(DeliveryRepository deliveryRepository, UserRepository userRepository,
+                            OrderService orderService) {
         this.deliveryRepository = deliveryRepository;
         this.userRepository = userRepository;
+        this.orderService = orderService;
     }
 
     public Delivery requestDelivery(Delivery delivery) {
@@ -92,7 +102,9 @@ public class DeliveryService {
         }
         delivery.setStatus(TransportStatus.ACCEPTED);
         delivery.setUpdatedAt(LocalDateTime.now());
-        return deliveryRepository.save(delivery);
+        delivery = deliveryRepository.save(delivery);
+        propagateOrderStatus(delivery, OrderStatus.AWAITING_TRANSPORT);
+        return delivery;
     }
 
     public Delivery declineFee(UUID deliveryId) {
@@ -127,11 +139,21 @@ public class DeliveryService {
         }
         delivery.setStatus(newStatus);
         delivery.setUpdatedAt(LocalDateTime.now());
-        return deliveryRepository.save(delivery);
+        delivery = deliveryRepository.save(delivery);
+        if (newStatus == TransportStatus.IN_TRANSIT) {
+            propagateOrderStatus(delivery, OrderStatus.IN_TRANSIT);
+        }
+        return delivery;
     }
 
+    @Transactional
     public Delivery confirmByProvider(UUID deliveryId) {
         Delivery delivery = getDeliveryById(deliveryId);
+        if (delivery.getStatus() != TransportStatus.IN_TRANSIT) {
+            throw new IllegalStateException(
+                    "Delivery can only be confirmed by the provider while IN_TRANSIT, current status: "
+                            + delivery.getStatus());
+        }
         delivery.setProviderConfirmed(true);
         delivery.setUpdatedAt(LocalDateTime.now());
         delivery = deliveryRepository.save(delivery);
@@ -139,8 +161,14 @@ public class DeliveryService {
         return delivery;
     }
 
+    @Transactional
     public Delivery confirmByBuyer(UUID deliveryId) {
         Delivery delivery = getDeliveryById(deliveryId);
+        if (delivery.getStatus() != TransportStatus.IN_TRANSIT) {
+            throw new IllegalStateException(
+                    "Delivery can only be confirmed by the buyer while IN_TRANSIT, current status: "
+                            + delivery.getStatus());
+        }
         delivery.setBuyerConfirmed(true);
         delivery.setUpdatedAt(LocalDateTime.now());
         delivery = deliveryRepository.save(delivery);
@@ -148,6 +176,7 @@ public class DeliveryService {
         return delivery;
     }
 
+    @Transactional
     private void checkBothConfirmed(Delivery delivery) {
         if (Boolean.TRUE.equals(delivery.getProviderConfirmed())
                 && Boolean.TRUE.equals(delivery.getBuyerConfirmed())
@@ -155,6 +184,22 @@ public class DeliveryService {
             delivery.setStatus(TransportStatus.DELIVERED);
             delivery.setUpdatedAt(LocalDateTime.now());
             deliveryRepository.save(delivery);
+            propagateOrderStatus(delivery, OrderStatus.DELIVERED);
+            propagateOrderStatus(delivery, OrderStatus.COMPLETED);
+        }
+    }
+
+    // Best-effort: a transport action must never fail because the linked order
+    // was in an unexpected state, and standalone deliveries have no order at all.
+    private void propagateOrderStatus(Delivery delivery, OrderStatus targetStatus) {
+        Order order = delivery.getOrder();
+        if (order == null) {
+            return;
+        }
+        try {
+            orderService.updateStatus(order.getId(), targetStatus);
+        } catch (RuntimeException e) {
+            log.warn("Skipped propagating order {} to {}: {}", order.getId(), targetStatus, e.getMessage());
         }
     }
 

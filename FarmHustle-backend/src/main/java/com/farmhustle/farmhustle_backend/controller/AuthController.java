@@ -2,6 +2,7 @@ package com.farmhustle.farmhustle_backend.controller;
 
 import com.farmhustle.farmhustle_backend.entity.Role;
 import com.farmhustle.farmhustle_backend.entity.User;
+import com.farmhustle.farmhustle_backend.exception.EmailDeliveryException;
 import com.farmhustle.farmhustle_backend.exception.EmailNotVerifiedException;
 import com.farmhustle.farmhustle_backend.service.AuthService;
 import com.farmhustle.farmhustle_backend.service.JwtService;
@@ -33,6 +34,8 @@ public class AuthController {
         try {
             User user = authService.signup(body.name(), body.email(), body.phone(), body.password(), body.role(), body.city());
             return ResponseEntity.status(HttpStatus.CREATED).body(new SignupResponse("Verification code sent", user.getEmail()));
+        } catch (EmailDeliveryException e) {
+            throw e;
         } catch (DataIntegrityViolationException e) {
             throw e;
         } catch (RuntimeException e) {
