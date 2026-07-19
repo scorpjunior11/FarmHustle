@@ -15,33 +15,37 @@ import java.util.Map;
 @Service
 public class EmailService {
 
-    private static final String RESEND_BASE_URL = "https://api.resend.com/emails";
+    private static final String BREVO_BASE_URL = "https://api.brevo.com/v3/smtp/email";
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final String apiKey;
+    private final String senderEmail;
 
-    public EmailService(@Value("${resend.api.key}") String apiKey) {
+    public EmailService(@Value("${brevo.api.key}") String apiKey,
+                         @Value("${brevo.sender.email}") String senderEmail) {
         this.apiKey = apiKey;
+        this.senderEmail = senderEmail;
     }
 
     public void sendVerificationCode(String toEmail, String code) {
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(apiKey);
+        headers.set("api-key", apiKey);
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
         Map<String, Object> body = Map.of(
-                "from", "FarmHustle <onboarding@resend.dev>",
-                "to", List.of(toEmail),
+                "sender", Map.of("name", "FarmHustle", "email", senderEmail),
+                "to", List.of(Map.of("email", toEmail)),
                 "subject", "Your FarmHustle verification code",
-                "html", "<p>Your verification code is <strong>" + code + "</strong>. It expires in 15 minutes.</p>");
+                "htmlContent", "<p>Your verification code is <strong>" + code + "</strong>. It expires in 15 minutes.</p>");
 
         try {
-            restTemplate.postForEntity(RESEND_BASE_URL, new HttpEntity<>(body, headers), Map.class);
+            restTemplate.postForEntity(BREVO_BASE_URL, new HttpEntity<>(body, headers), Map.class);
         } catch (RestClientResponseException e) {
             throw new RuntimeException(
-                    "Resend email send failed (" + e.getStatusCode().value() + "): " + e.getResponseBodyAsString());
+                    "Brevo email send failed (" + e.getStatusCode().value() + "): " + e.getResponseBodyAsString());
         } catch (RestClientException e) {
-            throw new RuntimeException("Could not reach Resend: " + e.getMessage());
+            throw new RuntimeException("Could not reach Brevo: " + e.getMessage());
         }
     }
 }
