@@ -1,5 +1,6 @@
 package com.farmhustle.farmhustle_backend.controller;
 
+import com.farmhustle.farmhustle_backend.entity.PendingSignup;
 import com.farmhustle.farmhustle_backend.entity.Role;
 import com.farmhustle.farmhustle_backend.entity.User;
 import com.farmhustle.farmhustle_backend.exception.EmailDeliveryException;
@@ -32,8 +33,8 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@Valid @RequestBody SignupRequest body) {
         try {
-            User user = authService.signup(body.name(), body.email(), body.phone(), body.password(), body.role(), body.city());
-            return ResponseEntity.status(HttpStatus.CREATED).body(new SignupResponse("Verification code sent", user.getEmail()));
+            PendingSignup pending = authService.signup(body.name(), body.email(), body.phone(), body.password(), body.role(), body.city());
+            return ResponseEntity.status(HttpStatus.CREATED).body(new SignupResponse("Verification code sent", pending.getEmail()));
         } catch (EmailDeliveryException e) {
             throw e;
         } catch (DataIntegrityViolationException e) {

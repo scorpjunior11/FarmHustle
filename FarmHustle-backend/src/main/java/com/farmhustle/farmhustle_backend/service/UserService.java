@@ -17,10 +17,6 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    public User create(User user) {
-        return userRepository.save(user);
-    }
-
     public List<User> getAll() {
         return userRepository.findAllByOrderByCreatedAtDesc();
     }

@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { login, resendVerification, EmailNotVerifiedError } from "../../api/client";
+import { login, EmailNotVerifiedError } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../theme/theme";
 
@@ -59,11 +59,6 @@ export default function LoginScreen() {
     } catch (err: unknown) {
       if (err instanceof EmailNotVerifiedError) {
         setInfo("Please verify your email — we're sending you to the code screen.");
-        try {
-          await resendVerification(err.email);
-        } catch (resendErr) {
-          console.error("Auto-resend on unverified login failed:", resendErr);
-        }
         router.replace({ pathname: "/verify-email", params: { email: err.email } });
         return;
       }

@@ -9,9 +9,11 @@ import jakarta.validation.constraints.Pattern;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+// An unverified signup in progress. Nothing here is a real account — a row only
+// becomes a User once the verification code is confirmed (see AuthService.verifyEmail).
 @Entity
-@Table(name = "users")
-public class User {
+@Table(name = "pending_signups")
+public class PendingSignup {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -45,11 +47,17 @@ public class User {
     @Column(nullable = false)
     private String city;
 
-    @Column
-    private String profilePhotoUrl;
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(nullable = false)
+    private String verificationCode;
 
     @Column(nullable = false)
-    private Boolean isActive = true;
+    private LocalDateTime verificationCodeExpiry;
+
+    // When the current code was issued — used only to enforce the resend cooldown,
+    // independent of the (longer) verificationCodeExpiry window.
+    @Column(nullable = false)
+    private LocalDateTime lastCodeSentAt;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -110,20 +118,28 @@ public class User {
         this.city = city;
     }
 
-    public String getProfilePhotoUrl() {
-        return profilePhotoUrl;
+    public String getVerificationCode() {
+        return verificationCode;
     }
 
-    public void setProfilePhotoUrl(String profilePhotoUrl) {
-        this.profilePhotoUrl = profilePhotoUrl;
+    public void setVerificationCode(String verificationCode) {
+        this.verificationCode = verificationCode;
     }
 
-    public Boolean getIsActive() {
-        return isActive;
+    public LocalDateTime getVerificationCodeExpiry() {
+        return verificationCodeExpiry;
     }
 
-    public void setIsActive(Boolean isActive) {
-        this.isActive = isActive;
+    public void setVerificationCodeExpiry(LocalDateTime verificationCodeExpiry) {
+        this.verificationCodeExpiry = verificationCodeExpiry;
+    }
+
+    public LocalDateTime getLastCodeSentAt() {
+        return lastCodeSentAt;
+    }
+
+    public void setLastCodeSentAt(LocalDateTime lastCodeSentAt) {
+        this.lastCodeSentAt = lastCodeSentAt;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -133,8 +149,4 @@ public class User {
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
-
 }
-
-
-

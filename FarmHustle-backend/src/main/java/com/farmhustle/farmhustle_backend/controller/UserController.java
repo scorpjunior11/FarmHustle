@@ -33,11 +33,6 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping
-    public ResponseEntity<User> create(@Valid @RequestBody User user) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(user));
-    }
-
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable UUID id, @Valid @RequestBody User user) {
         if (!CurrentUser.id().equals(id)) {
@@ -46,9 +41,8 @@ public class UserController {
         return userService.getById(id)
                 .map(existing -> {
                     // Only name/phone/city are user-editable through this endpoint.
-                    // role, isActive, emailVerified, passwordHash, verificationCode,
-                    // verificationCodeExpiry and profilePhotoUrl (its own dedicated
-                    // /photo endpoint) are never taken from the request body.
+                    // role, isActive, passwordHash and profilePhotoUrl (its own
+                    // dedicated /photo endpoint) are never taken from the request body.
                     existing.setName(user.getName());
                     existing.setPhone(user.getPhone());
                     existing.setCity(user.getCity());
