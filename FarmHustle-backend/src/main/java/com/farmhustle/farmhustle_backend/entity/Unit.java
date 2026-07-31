@@ -4,5 +4,7 @@ public enum Unit {
     KG,
     BAG,
     CRATE,
-    BUNCH
+    BUNCH,
+    BASKET,
+    PIECE
 }

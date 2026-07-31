@@ -16,7 +16,8 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
+import { useLiveData } from "../../hooks/useLiveData";
 import {
   getOrdersByBuyer,
   requestDelivery,
@@ -94,13 +95,16 @@ export default function OrdersScreen() {
     }
   }, [user]);
 
-  // Runs on mount and every time the screen regains focus — so returning
-  // from the payment screen refreshes the list and shows PAID.
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [fetchData])
-  );
+  const isActionInProgress =
+    confirmingDeliveryId !== null ||
+    cancelingDeliveryId !== null ||
+    payingOrderId !== null ||
+    payingDeliveryId !== null ||
+    acceptingFeeDeliveryId !== null ||
+    decliningFeeDeliveryId !== null ||
+    cancelingOrderId !== null;
+
+  useLiveData(fetchData, { isActionInProgress });
 
   const handleRefresh = () => {
     setRefreshing(true);

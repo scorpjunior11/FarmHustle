@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { getDeliveries, acceptDelivery, Delivery } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../theme/theme";
+import { useLiveData } from "../../hooks/useLiveData";
 
 const { colors } = THEME;
 const HAIRLINE = "#EEEEEE";
@@ -93,9 +94,7 @@ export default function DeliveryJobsScreen() {
     }
   }, [user]);
 
-  useEffect(() => {
-    fetchDeliveries();
-  }, [fetchDeliveries]);
+  useLiveData(fetchDeliveries, { isActionInProgress: submitting });
 
   const handleRefresh = () => {
     setRefreshing(true);

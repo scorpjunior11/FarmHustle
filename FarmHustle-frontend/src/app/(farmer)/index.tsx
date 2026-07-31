@@ -36,7 +36,7 @@ const cardShadow = {
 
 // ─── Add Product form options ─────────────────────────────────
 const CATEGORIES = ['GRAINS', 'VEGETABLES', 'FRUITS', 'TUBERS', 'OTHER'] as const;
-const UNITS = ['KG', 'BAG', 'CRATE', 'BUNCH'] as const;
+const UNITS = ['KG', 'BAG', 'CRATE', 'BUNCH', 'BASKET', 'PIECE'] as const;
 type Category = typeof CATEGORIES[number];
 type Unit = typeof UNITS[number];
 

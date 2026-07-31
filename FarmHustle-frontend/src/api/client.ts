@@ -24,7 +24,7 @@ export type Product = {
   name: string;
   category: "GRAINS" | "VEGETABLES" | "FRUITS" | "TUBERS" | "OTHER";
   quantityAvailable: number;
-  unit: "KG" | "BAG" | "CRATE" | "BUNCH";
+  unit: "KG" | "BAG" | "CRATE" | "BUNCH" | "BASKET" | "PIECE";
   price: number;
   description: string | null;
   imageUrl?: string | null;
