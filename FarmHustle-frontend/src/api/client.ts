@@ -544,3 +544,16 @@ export async function resendVerification(email: string): Promise<SignupResponse>
 
   return response.json() as Promise<SignupResponse>;
 }
+
+export async function registerPushToken(userId: string, token: string): Promise<void> {
+  const response = await authFetch(`${BASE_URL}/api/users/${userId}/push-token`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to register push token: ${response.status} ${errorText}`);
+  }
+}

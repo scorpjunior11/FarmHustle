@@ -48,6 +48,9 @@ public class User {
     @Column
     private String profilePhotoUrl;
 
+    @Column
+    private String expoPushToken;
+
     @Column(nullable = false)
     private Boolean isActive = true;
 
@@ -116,6 +119,14 @@ public class User {
 
     public void setProfilePhotoUrl(String profilePhotoUrl) {
         this.profilePhotoUrl = profilePhotoUrl;
+    }
+
+    public String getExpoPushToken() {
+        return expoPushToken;
+    }
+
+    public void setExpoPushToken(String expoPushToken) {
+        this.expoPushToken = expoPushToken;
     }
 
     public Boolean getIsActive() {

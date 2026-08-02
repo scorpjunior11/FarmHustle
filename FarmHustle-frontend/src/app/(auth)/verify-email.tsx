@@ -13,7 +13,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { verifyEmail, resendVerification } from "../../api/client";
+import { verifyEmail, resendVerification, registerPushToken } from "../../api/client";
+import { getExpoPushToken } from "../../api/pushNotifications";
 import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../theme/theme";
 
@@ -52,6 +53,20 @@ export default function VerifyEmailScreen() {
     try {
       const { token, user } = await verifyEmail(email, code.trim());
       setUser(user, token);
+
+      // Fire-and-forget: register push token in the background
+      const registerTokenAsync = async () => {
+        try {
+          const pushToken = await getExpoPushToken();
+          if (pushToken) {
+            await registerPushToken(user.id, pushToken);
+          }
+        } catch (error) {
+          console.error('Failed to register push token:', error);
+        }
+      };
+      registerTokenAsync();
+
       switch (user.role) {
         case "FARMER":
           router.replace("/(farmer)");

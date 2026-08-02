@@ -69,5 +69,18 @@ public class UserController {
         }
     }
 
+    @PatchMapping("/{id}/push-token")
+    public ResponseEntity<?> updatePushToken(@PathVariable UUID id, @RequestBody PushTokenRequest body) {
+        if (!CurrentUser.id().equals(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only update your own push token.");
+        }
+        try {
+            return ResponseEntity.ok(userService.updatePushToken(id, body.token()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     private record ProfilePhotoRequest(String profilePhotoUrl) {}
+    private record PushTokenRequest(String token) {}
 }

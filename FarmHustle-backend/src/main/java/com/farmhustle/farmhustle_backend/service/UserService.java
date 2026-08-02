@@ -44,6 +44,13 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    public User updatePushToken(UUID id, String token) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found: " + id));
+        user.setExpoPushToken(token);
+        return userRepository.save(user);
+    }
+
     public void delete(UUID id) {
         userRepository.deleteById(id);
     }
