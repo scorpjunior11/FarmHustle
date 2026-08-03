@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "com.farmhustle.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -35,7 +36,13 @@
             "imageWidth": 76
           }
         }
-      ]
+      ], [
+          "expo-notifications", 
+            {
+              "icon": "./assets/images/icon.png",
+              "color": "#208AEF"
+            }]
+      
     ],
     "experiments": {
       "typedRoutes": true,
