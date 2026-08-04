@@ -47,7 +47,8 @@ public class PushNotificationService {
         );
 
         try {
-            restTemplate.postForEntity(EXPO_PUSH_URL, new HttpEntity<>(requestBody, headers), Map.class);
+            var response = restTemplate.postForEntity(EXPO_PUSH_URL, new HttpEntity<>(requestBody, headers), Map.class);
+            log.info("Expo push API response: {}", response.getBody());
             log.debug("Push notification sent to token: {}", expoPushToken);
         } catch (RestClientException e) {
             throw new RuntimeException("Failed to send push notification: " + e.getMessage(), e);
