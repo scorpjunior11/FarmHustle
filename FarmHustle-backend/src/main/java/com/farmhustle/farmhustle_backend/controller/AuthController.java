@@ -74,6 +74,8 @@ public class AuthController {
         try {
             authService.resendVerificationCode(body.email());
             return ResponseEntity.ok(new SignupResponse("Verification code sent", body.email()));
+        } catch (EmailDeliveryException e) {
+            throw e;
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

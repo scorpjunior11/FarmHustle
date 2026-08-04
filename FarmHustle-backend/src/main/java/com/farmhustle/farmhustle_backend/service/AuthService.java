@@ -35,6 +35,7 @@ public class AuthService {
 
     @Transactional
     public PendingSignup signup(String name, String email, String phone, String rawPassword, Role role, String city) {
+        email = normalizeEmail(email);
         if (userRepository.findByEmail(email).isPresent()) {
             throw new RuntimeException("An account with this email already exists.");
         }
@@ -61,6 +62,7 @@ public class AuthService {
     }
 
     public User login(String email, String rawPassword) {
+        email = normalizeEmail(email);
         User user = userRepository.findByEmail(email).orElse(null);
         if (user != null) {
             if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
@@ -83,6 +85,7 @@ public class AuthService {
 
     @Transactional
     public User verifyEmail(String email, String code) {
+        email = normalizeEmail(email);
         PendingSignup pending = pendingSignupRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Invalid or expired code"));
         if (pending.getVerificationCode() == null
@@ -106,6 +109,7 @@ public class AuthService {
     }
 
     public void resendVerificationCode(String email) {
+        email = normalizeEmail(email);
         PendingSignup pending = pendingSignupRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("No account found with this email."));
         if (pending.getLastCodeSentAt() != null
@@ -123,5 +127,9 @@ public class AuthService {
         pending.setVerificationCode(code);
         pending.setVerificationCodeExpiry(now.plusMinutes(VERIFICATION_CODE_VALIDITY_MINUTES));
         pending.setLastCodeSentAt(now);
+    }
+
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase();
     }
 }
