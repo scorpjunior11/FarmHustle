@@ -5,6 +5,7 @@ import com.farmhustle.farmhustle_backend.entity.OrderStatus;
 import com.farmhustle.farmhustle_backend.entity.Product;
 import com.farmhustle.farmhustle_backend.repository.OrderRepository;
 import com.farmhustle.farmhustle_backend.repository.ProductRepository;
+import com.farmhustle.farmhustle_backend.security.CurrentUser;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -43,10 +44,13 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final PushNotificationService pushNotificationService;
 
-    public OrderService(OrderRepository orderRepository, ProductRepository productRepository) {
+    public OrderService(OrderRepository orderRepository, ProductRepository productRepository,
+                        PushNotificationService pushNotificationService) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
+        this.pushNotificationService = pushNotificationService;
     }
 
     public Order createOrder(Order order) {
@@ -76,7 +80,12 @@ public class OrderService {
 
         order.setStatus(OrderStatus.PENDING);
         order.setUpdatedAt(LocalDateTime.now());
-        return orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
+
+        // EVENT 1: Notify farmer of new order (best-effort, after persistence)
+        notifyOrderCreated(savedOrder);
+
+        return savedOrder;
     }
 
     private String formatQuantity(double value) {
@@ -112,11 +121,91 @@ public class OrderService {
         }
         order.setStatus(newStatus);
         order.setUpdatedAt(LocalDateTime.now());
-        return orderRepository.save(order);
+        Order updatedOrder = orderRepository.save(order);
+
+        // Notifications: best-effort side-effects after state change is persisted
+        if (newStatus == OrderStatus.AWAITING_PAYMENT) {
+            // EVENT 3: Notify buyer that order was accepted
+            notifyOrderAccepted(updatedOrder);
+        } else if (newStatus == OrderStatus.CANCELLED) {
+            // EVENT 4: Notify buyer if FARMER cancelled (not if buyer cancelled self)
+            notifyOrderDeclined(updatedOrder);
+        }
+
+        return updatedOrder;
     }
 
     private boolean isValidTransition(OrderStatus current, OrderStatus next) {
         Set<OrderStatus> allowed = ALLOWED_TRANSITIONS.get(current);
         return allowed != null && allowed.contains(next);
+    }
+
+    // ─── Notification Helpers ───────────────────────────────────
+
+    private String getFirstName(String fullName) {
+        if (fullName == null || fullName.isBlank()) {
+            return null;
+        }
+        return fullName.split("\\s+")[0];
+    }
+
+    private void notifyOrderCreated(Order order) {
+        try {
+            if (order == null || order.getFarmer() == null || order.getProduct() == null) {
+                return;
+            }
+            String buyerFirstName = getFirstName(order.getBuyer() != null ? order.getBuyer().getName() : null);
+            String productName = order.getProduct().getName();
+            if (buyerFirstName == null || productName == null) {
+                return;
+            }
+            String title = "New order";
+            String body = buyerFirstName + " placed an order for your " + productName + ".";
+            pushNotificationService.sendToUser(order.getFarmer(), title, body);
+        } catch (Exception e) {
+            // Best-effort: log and swallow
+        }
+    }
+
+    private void notifyOrderAccepted(Order order) {
+        try {
+            if (order == null || order.getBuyer() == null || order.getFarmer() == null || order.getProduct() == null) {
+                return;
+            }
+            String farmerFirstName = getFirstName(order.getFarmer().getName());
+            String productName = order.getProduct().getName();
+            if (farmerFirstName == null || productName == null) {
+                return;
+            }
+            String title = "Order accepted";
+            String body = farmerFirstName + " accepted your order for " + productName + ". You can now pay.";
+            pushNotificationService.sendToUser(order.getBuyer(), title, body);
+        } catch (Exception e) {
+            // Best-effort: log and swallow
+        }
+    }
+
+    private void notifyOrderDeclined(Order order) {
+        try {
+            if (order == null || order.getBuyer() == null || order.getFarmer() == null || order.getProduct() == null) {
+                return;
+            }
+            // Only notify buyer if the farmer (not the buyer) cancelled
+            UUID callerId = CurrentUser.id();
+            if (order.getBuyer().getId().equals(callerId)) {
+                // Buyer cancelled their own order — don't notify them
+                return;
+            }
+            String farmerFirstName = getFirstName(order.getFarmer().getName());
+            String productName = order.getProduct().getName();
+            if (farmerFirstName == null || productName == null) {
+                return;
+            }
+            String title = "Order declined";
+            String body = farmerFirstName + " declined your order for " + productName + ".";
+            pushNotificationService.sendToUser(order.getBuyer(), title, body);
+        } catch (Exception e) {
+            // Best-effort: log and swallow
+        }
     }
 }

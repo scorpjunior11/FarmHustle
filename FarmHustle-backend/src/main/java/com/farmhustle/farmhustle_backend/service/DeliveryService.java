@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 
 import java.time.LocalDateTime;
 import java.util.EnumMap;
@@ -42,12 +44,14 @@ public class DeliveryService {
     private final DeliveryRepository deliveryRepository;
     private final UserRepository userRepository;
     private final OrderService orderService;
+    private final PushNotificationService pushNotificationService;
 
     public DeliveryService(DeliveryRepository deliveryRepository, UserRepository userRepository,
-                            OrderService orderService) {
+                            OrderService orderService, PushNotificationService pushNotificationService) {
         this.deliveryRepository = deliveryRepository;
         this.userRepository = userRepository;
         this.orderService = orderService;
+        this.pushNotificationService = pushNotificationService;
     }
 
     public Delivery requestDelivery(Delivery delivery) {
@@ -148,11 +152,13 @@ public class DeliveryService {
         }
         delivery.setStatus(newStatus);
         delivery.setUpdatedAt(LocalDateTime.now());
-        delivery = deliveryRepository.save(delivery);
+        Delivery updatedDelivery = deliveryRepository.save(delivery);
         if (newStatus == TransportStatus.IN_TRANSIT) {
-            propagateOrderStatus(delivery, OrderStatus.IN_TRANSIT);
+            propagateOrderStatus(updatedDelivery, OrderStatus.IN_TRANSIT);
+            // EVENT 5: Notify buyer that delivery is in transit (best-effort, after persistence)
+            notifyDeliveryInTransit(updatedDelivery);
         }
-        return delivery;
+        return updatedDelivery;
     }
 
     @Transactional
@@ -215,5 +221,59 @@ public class DeliveryService {
     private boolean isValidTransition(TransportStatus current, TransportStatus next) {
         Set<TransportStatus> allowed = ALLOWED_TRANSITIONS.get(current);
         return allowed != null && allowed.contains(next);
+    }
+
+    // ─── Notification Helpers ───────────────────────────────────
+
+    private String getFirstName(String fullName) {
+        if (fullName == null || fullName.isBlank()) {
+            return null;
+        }
+        return fullName.split("\\s+")[0];
+    }
+
+    private void notifyDeliveryInTransit(Delivery delivery) {
+        try {
+            // Skip if no linked order (standalone delivery, no buyer to notify)
+            if (delivery == null || delivery.getOrder() == null) {
+                return;
+            }
+            Order order = delivery.getOrder();
+            if (order.getBuyer() == null || order.getProduct() == null || delivery.getProvider() == null) {
+                return;
+            }
+            String driverFirstName = getFirstName(delivery.getProvider().getName());
+            String productName = order.getProduct().getName();
+            if (driverFirstName == null || productName == null) {
+                return;
+            }
+            String title = "On the way";
+            String body = driverFirstName + " is delivering your " + productName + ".";
+            pushNotificationService.sendToUser(order.getBuyer(), title, body);
+        } catch (Exception e) {
+            // Best-effort: log and swallow
+        }
+    }
+
+    private void notifyDeliveryCompleted(Delivery delivery) {
+        try {
+            // Skip if no linked order (standalone delivery, no buyer to notify)
+            if (delivery == null || delivery.getOrder() == null) {
+                return;
+            }
+            Order order = delivery.getOrder();
+            if (order.getBuyer() == null || order.getProduct() == null) {
+                return;
+            }
+            String productName = order.getProduct().getName();
+            if (productName == null) {
+                return;
+            }
+            String title = "Delivered";
+            String body = "Your " + productName + " order is complete.";
+            pushNotificationService.sendToUser(order.getBuyer(), title, body);
+        } catch (Exception e) {
+            // Best-effort: log and swallow
+        }
     }
 }

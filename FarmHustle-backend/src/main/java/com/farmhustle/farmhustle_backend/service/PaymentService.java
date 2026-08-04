@@ -27,14 +27,17 @@ public class PaymentService {
 
     private final OrderService orderService;
     private final DeliveryService deliveryService;
+    private final PushNotificationService pushNotificationService;
     private final RestTemplate restTemplate = new RestTemplate();
     private final String secretKey;
 
     public PaymentService(OrderService orderService,
                           DeliveryService deliveryService,
+                          PushNotificationService pushNotificationService,
                           @Value("${paystack.secret.key}") String secretKey) {
         this.orderService = orderService;
         this.deliveryService = deliveryService;
+        this.pushNotificationService = pushNotificationService;
         this.secretKey = secretKey;
     }
 
@@ -77,8 +80,12 @@ public class PaymentService {
             // Already marked (e.g. verify called twice) — treat as success, don't re-transition.
             return new VerifyResult("success", order);
         }
-        order = orderService.updateStatus(orderId, OrderStatus.PAID);
-        return new VerifyResult("success", order);
+        Order paidOrder = orderService.updateStatus(orderId, OrderStatus.PAID);
+
+        // EVENT 2: Notify farmer that payment was received (best-effort, after persistence)
+        notifyPaymentReceived(paidOrder);
+
+        return new VerifyResult("success", paidOrder);
     }
 
     // ─── Delivery fee payments ──────────────────────────────────
@@ -208,5 +215,32 @@ public class PaymentService {
             throw new RuntimeException("Payment verified but no " + key + " found in transaction metadata.");
         }
         return UUID.fromString((String) ((Map<String, Object>) metadataObj).get(key));
+    }
+
+    // ─── Notification Helpers ───────────────────────────────────
+
+    private String getFirstName(String fullName) {
+        if (fullName == null || fullName.isBlank()) {
+            return null;
+        }
+        return fullName.split("\\s+")[0];
+    }
+
+    private void notifyPaymentReceived(Order order) {
+        try {
+            if (order == null || order.getFarmer() == null || order.getProduct() == null) {
+                return;
+            }
+            String buyerFirstName = getFirstName(order.getBuyer() != null ? order.getBuyer().getName() : null);
+            String productName = order.getProduct().getName();
+            if (buyerFirstName == null || productName == null) {
+                return;
+            }
+            String title = "Payment received";
+            String body = buyerFirstName + " paid for the " + productName + " order.";
+            pushNotificationService.sendToUser(order.getFarmer(), title, body);
+        } catch (Exception e) {
+            // Best-effort: log and swallow
+        }
     }
 }
