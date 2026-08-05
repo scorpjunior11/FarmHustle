@@ -56,15 +56,6 @@ export default function TransportLayout() {
         }}
       />
       <Tabs.Screen
-        name="negotiating"
-        options={{
-          title: "Negotiate",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "chatbubbles" : "chatbubbles-outline"} size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="active"
         options={{
           title: "Active",

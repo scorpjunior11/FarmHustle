@@ -29,14 +29,10 @@ import {
   initializePayment,
   initializeDeliveryPayment,
   updateOrderStatus,
-  getNegotiationOffers,
-  acceptNegotiationOffer,
-  counterOfferAsBuyer,
   Order,
   OrderStatus,
   Delivery,
   AuthUser,
-  OfferSummary,
 } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../theme/theme";
@@ -69,7 +65,6 @@ export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState<Order[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [offersByDeliveryId, setOffersByDeliveryId] = useState<Record<string, OfferSummary[]>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [confirmingDeliveryId, setConfirmingDeliveryId] = useState<string | null>(null);
@@ -79,8 +74,6 @@ export default function OrdersScreen() {
   const [acceptingFeeDeliveryId, setAcceptingFeeDeliveryId] = useState<string | null>(null);
   const [decliningFeeDeliveryId, setDecliningFeeDeliveryId] = useState<string | null>(null);
   const [cancelingOrderId, setCancelingOrderId] = useState<string | null>(null);
-  const [acceptingOfferId, setAcceptingOfferId] = useState<string | null>(null);
-  const [counterSubmitting, setCounterSubmitting] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user) {
@@ -94,21 +87,6 @@ export default function OrdersScreen() {
       ]);
       setOrders(ordersData);
       setDeliveries(deliveriesData);
-
-      // Negotiation offers only exist while a request is still REQUESTED (the
-      // negotiated flow never passes through FEE_PROPOSED) — fetch per-delivery,
-      // best-effort, so one failing lookup doesn't blank the whole screen.
-      const requestedDeliveries = deliveriesData.filter((d) => d.status === "REQUESTED");
-      const offersEntries = await Promise.all(
-        requestedDeliveries.map(async (d): Promise<readonly [string, OfferSummary[]]> => {
-          try {
-            return [d.id, await getNegotiationOffers(d.id)] as const;
-          } catch {
-            return [d.id, []] as const;
-          }
-        })
-      );
-      setOffersByDeliveryId(Object.fromEntries(offersEntries));
     } catch {
       // silently fail — lists stay as-is
     } finally {
@@ -124,9 +102,7 @@ export default function OrdersScreen() {
     payingDeliveryId !== null ||
     acceptingFeeDeliveryId !== null ||
     decliningFeeDeliveryId !== null ||
-    cancelingOrderId !== null ||
-    acceptingOfferId !== null ||
-    counterSubmitting;
+    cancelingOrderId !== null;
 
   useLiveData(fetchData, { isActionInProgress });
 
@@ -290,60 +266,10 @@ export default function OrdersScreen() {
     );
   };
 
-  // ── Negotiation: buyer accepts/counters a driver's offer ────
-  const [counteringOffer, setCounteringOffer] = useState<OfferSummary | null>(null);
-  const [counterAmount, setCounterAmount] = useState("");
-  const [counterError, setCounterError] = useState<string | null>(null);
-
-  const handleAcceptOffer = async (offer: OfferSummary) => {
-    setAcceptingOfferId(offer.offerId);
-    try {
-      await acceptNegotiationOffer(offer.offerId);
-      await fetchData();
-    } catch (err) {
-      const raw = err instanceof Error ? err.message : "Something went wrong.";
-      Alert.alert("Could not accept offer", raw.replace(/^\d{3}:\s*/, ""));
-    } finally {
-      setAcceptingOfferId(null);
-    }
-  };
-
-  const openCounterModal = (offer: OfferSummary) => {
-    setCounteringOffer(offer);
-    setCounterAmount("");
-    setCounterError(null);
-  };
-
-  const closeCounterModal = () => {
-    if (!counterSubmitting) setCounteringOffer(null);
-  };
-
-  const handleSubmitCounter = async () => {
-    if (!counteringOffer) return;
-    const amount = Number(counterAmount);
-    if (!counterAmount.trim() || isNaN(amount) || amount <= 0) {
-      setCounterError("Please enter a valid amount greater than 0.");
-      return;
-    }
-    setCounterSubmitting(true);
-    setCounterError(null);
-    try {
-      await counterOfferAsBuyer(counteringOffer.offerId, amount);
-      setCounteringOffer(null);
-      await fetchData();
-    } catch (err) {
-      const raw = err instanceof Error ? err.message : "Something went wrong.";
-      setCounterError(raw.replace(/^\d{3}:\s*/, ""));
-    } finally {
-      setCounterSubmitting(false);
-    }
-  };
-
   // ── Request transport modal state ──────────────────────────
   const [transportOrder, setTransportOrder] = useState<Order | null>(null);
   const [pickupLocation, setPickupLocation] = useState("");
   const [deliveryLocation, setDeliveryLocation] = useState("");
-  const [startingFee, setStartingFee] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -351,7 +277,6 @@ export default function OrdersScreen() {
     setTransportOrder(order);
     setPickupLocation(order.farmer?.city ?? "");
     setDeliveryLocation(order.buyer?.city ?? "");
-    setStartingFee("");
     setFormError(null);
   };
 
@@ -379,11 +304,6 @@ export default function OrdersScreen() {
       setFormError("Pickup and destination can't be the same.");
       return;
     }
-    const fee = Number(startingFee);
-    if (!startingFee.trim() || isNaN(fee) || fee <= 0) {
-      setFormError("Please enter a valid starting fee greater than 0.");
-      return;
-    }
     setSubmitting(true);
     setFormError(null);
     try {
@@ -391,7 +311,6 @@ export default function OrdersScreen() {
         orderId: transportOrder.id,
         pickupLocation: pickup,
         deliveryLocation: destination,
-        deliveryFee: fee,
       });
       setTransportOrder(null);
       Alert.alert(
@@ -464,12 +383,10 @@ export default function OrdersScreen() {
             }
             renderItem={({ item }) => {
               const delivery = deliveries.find((d) => d.order?.id === item.id) ?? null;
-              const offers = delivery ? offersByDeliveryId[delivery.id] ?? [] : [];
               return (
                 <OrderCard
                   order={item}
                   delivery={delivery}
-                  offers={offers}
                   confirming={delivery !== null && confirmingDeliveryId === delivery.id}
                   canceling={delivery !== null && cancelingDeliveryId === delivery.id}
                   paying={payingOrderId === item.id}
@@ -477,7 +394,6 @@ export default function OrdersScreen() {
                   acceptingFee={delivery !== null && acceptingFeeDeliveryId === delivery.id}
                   decliningFee={delivery !== null && decliningFeeDeliveryId === delivery.id}
                   cancelingOrder={cancelingOrderId === item.id}
-                  acceptingOfferId={acceptingOfferId}
                   onRequestTransport={() => openTransportModal(item)}
                   onConfirmReceived={() => delivery && handleConfirmReceived(delivery)}
                   onCancelDelivery={() => delivery && handleCancelDelivery(delivery)}
@@ -486,8 +402,6 @@ export default function OrdersScreen() {
                   onAcceptFee={() => delivery && handleAcceptFee(delivery)}
                   onDeclineFee={() => delivery && handleDeclineFee(delivery)}
                   onCancelOrder={() => handleCancelOrder(item)}
-                  onAcceptOffer={handleAcceptOffer}
-                  onCounterOffer={openCounterModal}
                 />
               );
             }}
@@ -557,20 +471,6 @@ export default function OrdersScreen() {
               Pre-filled from your location — edit if needed
             </Text>
 
-            <Text style={styles.label}>Your starting fee (GHS)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 50"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
-              value={startingFee}
-              onChangeText={setStartingFee}
-              accessibilityLabel="Your starting fee"
-            />
-            <Text style={styles.helperText}>
-              Drivers can accept this or counter with their own price.
-            </Text>
-
             {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
 
             <TouchableOpacity
@@ -598,59 +498,6 @@ export default function OrdersScreen() {
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
-      </Modal>
-
-      {/* Counter a driver's offer */}
-      <Modal
-        visible={counteringOffer !== null}
-        animationType="fade"
-        transparent
-        onRequestClose={closeCounterModal}
-      >
-        <View style={styles.counterOverlay}>
-          <View style={styles.counterCard}>
-            <Text style={styles.counterTitle}>Counter {counteringOffer?.driverName ?? "driver"}</Text>
-            <Text style={styles.counterMeta}>
-              Their offer: GHS {counteringOffer?.currentAmount ?? 0}
-            </Text>
-
-            <Text style={styles.label}>Your counter (GHS)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 45"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
-              value={counterAmount}
-              onChangeText={setCounterAmount}
-              accessibilityLabel="Your counter amount"
-              autoFocus
-            />
-
-            {counterError ? <Text style={styles.errorText}>{counterError}</Text> : null}
-
-            <View style={styles.counterActions}>
-              <TouchableOpacity
-                style={styles.counterCancelBtn}
-                onPress={closeCounterModal}
-                disabled={counterSubmitting}
-              >
-                <Text style={styles.counterCancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.counterConfirmBtn, counterSubmitting && styles.btnDisabled]}
-                onPress={handleSubmitCounter}
-                disabled={counterSubmitting}
-                activeOpacity={0.85}
-              >
-                {counterSubmitting ? (
-                  <ActivityIndicator color={colors.white} size="small" />
-                ) : (
-                  <Text style={styles.counterConfirmBtnText}>Send counter</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -736,90 +583,9 @@ function ProviderCard({
   );
 }
 
-// One row per responding driver — cheapest-first (the backend already sorts).
-// Only ever renders PENDING/ACCEPTED rows: getNegotiationOffers() already
-// filters out DECLINED/CLOSED offers server-side.
-function OfferRow({
-  offer,
-  busy,
-  onAccept,
-  onCounter,
-}: {
-  offer: OfferSummary;
-  busy: boolean;
-  onAccept: () => void;
-  onCounter: () => void;
-}) {
-  return (
-    <View style={styles.offerRow}>
-      <View style={styles.offerTopRow}>
-        <View style={styles.offerInfo}>
-          <Text style={styles.offerDriverName} numberOfLines={1}>
-            {offer.driverName}
-          </Text>
-          <View style={styles.providerMetaRow}>
-            <Ionicons name="location-outline" size={12} color={colors.textMuted} />
-            <Text style={styles.providerMetaText} numberOfLines={1}>
-              {offer.driverCity}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={styles.providerCallRow}
-            onPress={() => Linking.openURL(`tel:${offer.driverPhone}`)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="call-outline" size={12} color={colors.primary} />
-            <Text style={styles.providerCallText}>{offer.driverPhone}</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.offerAmount}>GHS {offer.currentAmount}</Text>
-      </View>
-
-      {offer.status === "ACCEPTED" ? (
-        <View style={styles.feePaidRow}>
-          <Ionicons name="checkmark-circle-outline" size={14} color={colors.primary} />
-          <Text style={styles.feePaidText}>Accepted</Text>
-        </View>
-      ) : (
-        <>
-          <Text style={styles.offerTurnText}>
-            {offer.lastActor === "DRIVER" ? "Your turn to respond" : "Waiting for driver"}
-          </Text>
-          <View style={styles.offerActionsRow}>
-            <TouchableOpacity
-              style={[styles.offerCounterBtn, busy && styles.btnDisabled]}
-              onPress={onCounter}
-              disabled={busy}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.offerCounterBtnText}>Counter</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.offerAcceptBtn, busy && styles.btnDisabled]}
-              onPress={onAccept}
-              disabled={busy}
-              activeOpacity={0.85}
-            >
-              {busy ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-outline" size={14} color={colors.white} />
-                  <Text style={styles.offerAcceptBtnText}>Accept</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
-    </View>
-  );
-}
-
 function OrderCard({
   order,
   delivery,
-  offers,
   confirming,
   canceling,
   paying,
@@ -827,7 +593,6 @@ function OrderCard({
   acceptingFee,
   decliningFee,
   cancelingOrder,
-  acceptingOfferId,
   onRequestTransport,
   onConfirmReceived,
   onCancelDelivery,
@@ -836,12 +601,9 @@ function OrderCard({
   onAcceptFee,
   onDeclineFee,
   onCancelOrder,
-  onAcceptOffer,
-  onCounterOffer,
 }: {
   order: Order;
   delivery: Delivery | null;
-  offers: OfferSummary[];
   confirming: boolean;
   canceling: boolean;
   paying: boolean;
@@ -849,7 +611,6 @@ function OrderCard({
   acceptingFee: boolean;
   decliningFee: boolean;
   cancelingOrder: boolean;
-  acceptingOfferId: string | null;
   onRequestTransport: () => void;
   onConfirmReceived: () => void;
   onCancelDelivery: () => void;
@@ -858,21 +619,21 @@ function OrderCard({
   onAcceptFee: () => void;
   onDeclineFee: () => void;
   onCancelOrder: () => void;
-  onAcceptOffer: (offer: OfferSummary) => void;
-  onCounterOffer: (offer: OfferSummary) => void;
 }) {
   const meta = STATUS_META[order.status];
   const price = order.agreedPrice ?? order.initialPrice;
 
   const canConfirmReceived =
-    delivery !== null && delivery.status === "IN_TRANSIT" && !delivery.buyerConfirmed;
+    delivery !== null &&
+    delivery.status === "IN_TRANSIT" &&
+    delivery.providerConfirmed &&
+    !delivery.buyerConfirmed;
   const waitingForProvider =
     delivery !== null && delivery.status === "IN_TRANSIT" && delivery.buyerConfirmed;
   const transportMeta =
     delivery !== null && delivery.status in TRANSPORT_STATUS_META
       ? TRANSPORT_STATUS_META[delivery.status as keyof typeof TRANSPORT_STATUS_META]
       : null;
-  const isNegotiating = delivery !== null && delivery.status === "REQUESTED" && offers.length > 0;
 
   return (
     <View style={styles.card}>
@@ -940,29 +701,12 @@ function OrderCard({
         </TouchableOpacity>
       ) : null}
 
-      {delivery && transportMeta && !isNegotiating ? (
+      {delivery && transportMeta ? (
         <View style={styles.transportRow}>
           <Ionicons name={transportMeta.icon} size={16} color={transportMeta.color} />
           <Text style={[styles.transportText, { color: transportMeta.color }]}>
             {transportStatusLabel(delivery)}
           </Text>
-        </View>
-      ) : null}
-
-      {isNegotiating ? (
-        <View style={styles.offersList}>
-          <Text style={styles.offersListTitle}>
-            {offers.length} {offers.length === 1 ? "driver has" : "drivers have"} responded
-          </Text>
-          {offers.map((offer) => (
-            <OfferRow
-              key={offer.offerId}
-              offer={offer}
-              busy={acceptingOfferId === offer.offerId}
-              onAccept={() => onAcceptOffer(offer)}
-              onCounter={() => onCounterOffer(offer)}
-            />
-          ))}
         </View>
       ) : null}
 
@@ -1320,88 +1064,4 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.65 },
   cancelBtn: { marginTop: 12, alignItems: "center", paddingVertical: 8 },
   cancelBtnText: { fontSize: 14, fontWeight: "600", color: colors.textMuted },
-
-  // Negotiation: buyer's multi-offer list (replaces the plain "Transport
-  // requested" row while drivers are responding — same card/hairline tokens).
-  offersList: { marginTop: 12, gap: 10 },
-  offersListTitle: { fontSize: 12.5, fontWeight: "700", color: colors.textMuted },
-  offerRow: {
-    borderWidth: 1,
-    borderColor: HAIRLINE,
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: colors.surface,
-  },
-  offerTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  offerInfo: { flex: 1, minWidth: 0, gap: 3 },
-  offerDriverName: { fontSize: 14, fontWeight: "800", color: colors.text },
-  offerAmount: { fontSize: 16, fontWeight: "800", color: colors.primary },
-  offerTurnText: { fontSize: 11.5, color: colors.textMuted, marginTop: 8, fontWeight: "600" },
-  offerActionsRow: { flexDirection: "row", gap: 8, marginTop: 10 },
-  offerCounterBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: HAIRLINE,
-    borderRadius: 10,
-    paddingVertical: 9,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  offerCounterBtnText: { fontSize: 12.5, fontWeight: "700", color: colors.text },
-  offerAcceptBtn: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 9,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 6,
-  },
-  offerAcceptBtnText: { fontSize: 12.5, fontWeight: "700", color: colors.white },
-
-  // Negotiation: counter-offer modal (center overlay, matching the transport
-  // app's "set your fee" modal recipe — radius 20 card, outline/filled buttons).
-  counterOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  counterCard: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 22,
-    width: "100%",
-  },
-  counterTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
-  counterMeta: { fontSize: 13, color: colors.textMuted, marginTop: 6, marginBottom: 4 },
-  counterActions: { flexDirection: "row", gap: 10, marginTop: 20 },
-  counterCancelBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: HAIRLINE,
-    borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  counterCancelBtnText: { fontSize: 14, fontWeight: "700", color: colors.text },
-  counterConfirmBtn: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 13,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 6,
-  },
-  counterConfirmBtnText: { fontSize: 14, fontWeight: "700", color: colors.white },
 });

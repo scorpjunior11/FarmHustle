@@ -184,6 +184,9 @@ public class DeliveryService {
                     "Delivery can only be confirmed by the buyer while IN_TRANSIT, current status: "
                             + delivery.getStatus());
         }
+        if (!Boolean.TRUE.equals(delivery.getProviderConfirmed())) {
+            throw new IllegalStateException("The driver has not confirmed delivery yet.");
+        }
         delivery.setBuyerConfirmed(true);
         delivery.setUpdatedAt(LocalDateTime.now());
         delivery = deliveryRepository.save(delivery);
