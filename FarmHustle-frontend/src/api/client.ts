@@ -227,6 +227,7 @@ export async function requestDelivery(data: {
   orderId: string;
   pickupLocation: string;
   deliveryLocation: string;
+  deliveryFee: number;
 }): Promise<unknown> {
   const response = await authFetch(`${BASE_URL}/api/deliveries`, {
     method: "POST",
@@ -235,6 +236,7 @@ export async function requestDelivery(data: {
       order: { id: data.orderId },
       pickupLocation: data.pickupLocation,
       deliveryLocation: data.deliveryLocation,
+      deliveryFee: data.deliveryFee,
     }),
   });
   if (!response.ok) {
@@ -421,6 +423,157 @@ export async function verifyDeliveryPayment(
     throw new Error(`${response.status}: ${errorText}`);
   }
   return response.json() as Promise<{ status: string; delivery: Delivery | null }>;
+}
+
+// ─── Negotiation (multi-driver transport fee negotiation) ───
+
+export type OfferActor = "BUYER" | "DRIVER";
+export type OfferStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "CLOSED";
+
+// Raw response shape from the mutating negotiation endpoints (propose/accept/
+// counter/decline) — the backend returns the full DeliveryOffer entity, but
+// only these fields are ever read here.
+export type NegotiationOfferResult = {
+  id: string;
+  currentAmount: number;
+  lastActor: OfferActor;
+  status: OfferStatus;
+  updatedAt: string;
+};
+
+export async function proposeNegotiationOffer(
+  requestId: string,
+  amount: number
+): Promise<NegotiationOfferResult> {
+  const response = await authFetch(`${BASE_URL}/api/negotiation/requests/${requestId}/offers`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<NegotiationOfferResult>;
+}
+
+export async function acceptBuyerPrice(requestId: string): Promise<NegotiationOfferResult> {
+  const response = await authFetch(`${BASE_URL}/api/negotiation/requests/${requestId}/offers/accept`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<NegotiationOfferResult>;
+}
+
+export async function counterOfferAsDriver(
+  offerId: string,
+  amount: number
+): Promise<NegotiationOfferResult> {
+  const response = await authFetch(`${BASE_URL}/api/negotiation/offers/${offerId}/counter`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<NegotiationOfferResult>;
+}
+
+export async function declineNegotiationOffer(offerId: string): Promise<NegotiationOfferResult> {
+  const response = await authFetch(`${BASE_URL}/api/negotiation/offers/${offerId}/decline`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<NegotiationOfferResult>;
+}
+
+export type OfferSummary = {
+  offerId: string;
+  driverId: string;
+  driverName: string;
+  driverCity: string;
+  driverPhone: string;
+  currentAmount: number;
+  lastActor: OfferActor;
+  status: OfferStatus;
+  updatedAt: string;
+};
+
+export async function getNegotiationOffers(requestId: string): Promise<OfferSummary[]> {
+  const response = await authFetch(`${BASE_URL}/api/negotiation/requests/${requestId}/offers`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<OfferSummary[]>;
+}
+
+export async function counterOfferAsBuyer(
+  offerId: string,
+  amount: number
+): Promise<NegotiationOfferResult> {
+  const response = await authFetch(`${BASE_URL}/api/negotiation/offers/${offerId}/counter-buyer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<NegotiationOfferResult>;
+}
+
+export async function acceptNegotiationOffer(offerId: string): Promise<NegotiationOfferResult> {
+  const response = await authFetch(`${BASE_URL}/api/negotiation/offers/${offerId}/accept`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<NegotiationOfferResult>;
+}
+
+export type OfferHistoryEntry = {
+  actor: OfferActor;
+  amount: number;
+  createdAt: string;
+};
+
+export async function getOfferHistory(offerId: string): Promise<OfferHistoryEntry[]> {
+  const response = await authFetch(`${BASE_URL}/api/negotiation/offers/${offerId}/history`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<OfferHistoryEntry[]>;
+}
+
+export type DriverOfferSummary = {
+  offerId: string;
+  requestId: string;
+  currentAmount: number;
+  lastActor: OfferActor;
+  status: OfferStatus;
+  updatedAt: string;
+};
+
+export async function getMyNegotiationOffers(): Promise<DriverOfferSummary[]> {
+  const response = await authFetch(`${BASE_URL}/api/negotiation/offers/mine`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${response.status}: ${errorText}`);
+  }
+  return response.json() as Promise<DriverOfferSummary[]>;
 }
 
 // ─── Auth ───────────────────────────────────────────────────

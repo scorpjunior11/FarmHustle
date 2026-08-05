@@ -1,5 +1,6 @@
 package com.farmhustle.farmhustle_backend.service;
 
+import com.farmhustle.farmhustle_backend.dto.DriverOfferSummary;
 import com.farmhustle.farmhustle_backend.dto.OfferHistoryEntry;
 import com.farmhustle.farmhustle_backend.dto.OfferSummaryResponse;
 import com.farmhustle.farmhustle_backend.entity.Delivery;
@@ -231,6 +232,21 @@ public class NegotiationService {
         getOfferById(offerId); // 400 if the offer doesn't exist
         return offerCounterRepository.findByOfferIdOrderByCreatedAtAsc(offerId).stream()
                 .map(c -> new OfferHistoryEntry(c.getActor(), c.getAmount(), c.getCreatedAt()))
+                .collect(Collectors.toList());
+    }
+
+    // Driver's own offers across every request they've engaged with — always
+    // scoped to the caller's own id, so no ownership check is needed beyond that.
+    public List<DriverOfferSummary> getMyOffers(UUID driverId) {
+        requireNegotiationEnabled();
+        return deliveryOfferRepository.findByDriverIdOrderByCreatedAtDesc(driverId).stream()
+                .map(o -> new DriverOfferSummary(
+                        o.getId(),
+                        o.getRequest().getId(),
+                        o.getCurrentAmount(),
+                        o.getLastActor(),
+                        o.getStatus(),
+                        o.getUpdatedAt()))
                 .collect(Collectors.toList());
     }
 

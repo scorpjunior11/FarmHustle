@@ -104,6 +104,15 @@ public class NegotiationController {
         }
     }
 
+    @GetMapping("/offers/mine")
+    public ResponseEntity<?> getMyOffers() {
+        try {
+            return ResponseEntity.ok(negotiationService.getMyOffers(CurrentUser.id()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @GetMapping("/offers/{offerId}/history")
     public ResponseEntity<?> getOfferHistory(@PathVariable UUID offerId) {
         try {
